@@ -162,13 +162,15 @@ local function draw(key, plan, row, config, opacity, fade_out, now)
     border = config.border,
     focusable = false,
     zindex = config.zindex,
-    noautocmd = true,
   }
   if not entry then
     local buf = api.nvim_create_buf(false, true)
     vim.bo[buf].bufhidden = "wipe"
     vim.bo[buf].filetype = "notification-tools"
-    entry = { buf = buf, win = api.nvim_open_win(buf, false, options) }
+    entry = {
+      buf = buf,
+      win = api.nvim_open_win(buf, false, vim.tbl_extend("force", options, { noautocmd = true })),
+    }
     windows[key] = entry
   elseif not vim.deep_equal(entry.options, options) then
     api.nvim_win_set_config(entry.win, options)

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Neovim ${{ matrix.neovim }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [v0.10.0, stable]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install release tools
+        shell: bash
+        env:
+          NEOVIM_VERSION: ${{ matrix.neovim }}
+          STYLUA_VERSION: v2.6.0
+          LUALS_VERSION: 3.19.2
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/notification-tools"
+          mkdir -p "$tools/neovim" "$tools/stylua" "$tools/luals"
+          case "$NEOVIM_VERSION" in
+            v0.10.0) nvim_url="https://github.com/neovim/neovim/releases/download/v0.10.0/nvim-linux64.tar.gz" ;;
+            stable) nvim_url="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz" ;;
+            *) exit 1 ;;
+          esac
+          curl -fsSL --retry 3 "$nvim_url" -o "$tools/neovim.tar.gz"
+          tar -xzf "$tools/neovim.tar.gz" -C "$tools/neovim" --strip-components=1
+          curl -fsSL --retry 3 "https://github.com/JohnnyMorganz/StyLua/releases/download/$STYLUA_VERSION/stylua-linux-x86_64.zip" -o "$tools/stylua.zip"
+          unzip -q "$tools/stylua.zip" -d "$tools/stylua"
+          chmod +x "$tools/stylua/stylua"
+          curl -fsSL --retry 3 "https://github.com/LuaLS/lua-language-server/releases/download/$LUALS_VERSION/lua-language-server-$LUALS_VERSION-linux-x64.tar.gz" -o "$tools/luals.tar.gz"
+          tar -xzf "$tools/luals.tar.gz" -C "$tools/luals"
+          {
+            echo "$tools/neovim/bin"
+            echo "$tools/stylua"
+            echo "$tools/luals/bin"
+          } >> "$GITHUB_PATH"
+      - name: Report tool versions
+        run: |
+          nvim --version
+          stylua --version
+          lua-language-server --version
+      - name: Runtime and formatting checks
+        run: sh tests/run.sh
+      - name: Public API type contracts
+        run: python3 scripts/check_types.py

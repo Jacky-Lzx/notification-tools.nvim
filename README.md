@@ -328,6 +328,8 @@ sh tests/run.sh
 
 Requires Neovim and StyLua. The suite isolates state/cache/data and covers API ownership, fast events, routing/DND, source-aware merging, task lifetimes, Unicode layout, Markdown styles/conceal, history filters and anchored refresh, result retention, reader timeout handling, and cleanup.
 
+[CI](https://github.com/Jacky-Lzx/notification-tools.nvim/actions/workflows/ci.yml) runs the runtime suite, formatting checks, and LuaLS consumer contracts on **Neovim 0.10.0** and the **latest stable release** for every push and pull request. StyLua and LuaLS versions are pinned in the workflow.
+
 Optional installed-plugin checks:
 
 ```sh

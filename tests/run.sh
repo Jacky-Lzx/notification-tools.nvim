@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-export TMPDIR="${TMPDIR:-/private/tmp}"
-test_root=$(mktemp -d /private/tmp/notification-tools-tests.XXXXXX)
+export TMPDIR="${TMPDIR:-/tmp}"
+test_root=$(mktemp -d "$TMPDIR/notification-tools-tests.XXXXXX")
 trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 export XDG_STATE_HOME="$test_root/state"
 export XDG_CACHE_HOME="$test_root/cache"
