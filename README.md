@@ -248,6 +248,10 @@ require("notification-tools").setup({
     avoid = { "NvimTree", "TestExplorer" },
   },
   lsp = { enabled = true, ignore = {} },
+  messages = {
+    enabled = false, -- Also requires a ready external cmdline/prompt renderer.
+    routes = { search_count = "drop", search_cmd = "drop", bufwrite = "history" },
+  },
 })
 ```
 
@@ -277,6 +281,46 @@ Use `NotificationToolsNotificationNormal` and `NotificationToolsProgressNormal` 
 ## Integrate with your setup
 
 Disable other notification/progress owners to avoid duplicate displays: Fidget progress, Snacks notifier, or Noice's `notify` and `lsp.progress` features, depending on your setup.
+
+### Optional native message capture
+
+`vim.notify` works independently of Neovim's native messages (`:echo`, `print()`, command errors). To capture those messages too, opt in:
+
+```lua
+require("notification-tools").setup({
+  messages = {
+    enabled = true,
+    routes = {
+      lua_print = "history", -- Optional: keep print() output without a popup.
+      search_count = "drop",
+      search_cmd = "drop",
+      bufwrite = "history",
+    },
+  },
+})
+```
+
+**Enabling this option alone does not attach any UI or change the native command line.** A compatible external command-line plugin must call `tools.attach_messages()` after its own renderer is ready. The returned handle owns the subscription:
+
+```lua
+-- Inside the external command-line plugin, after its renderer is attached:
+local message_handle = require("notification-tools").attach_messages()
+
+-- Before that plugin stops its command-line/prompt renderer:
+if message_handle then message_handle:detach() end
+```
+
+There is no plugin-name detection or mandatory dependency. With no handoff, notifications, tasks and LSP progress work as usual and the native command line stays intact. The call returns `nil` when `messages.enabled = false`; otherwise only one active handle is allowed. `handle:is_active()` reports ownership. Detach is idempotent, discards queued events and cannot disconnect a newer handle. `setup()`/`teardown()` invalidate the handle; a running consumer must repeat the handoff after reconfiguration. See [examples/messages.lua](examples/messages.lua).
+
+The consumer must handle `cmdline_*`, completion and interactive prompts, including `msg_show` kinds `confirm`, `confirm_sub`, `number_prompt` and `return_prompt`, plus any status widgets it needs (`msg_showmode`, `msg_showcmd`, `msg_ruler`). These events are never consumed by notification-tools. Neovim couples `ext_messages` to `ext_cmdline`, so **do not call `attach_messages()` without a working command-line/prompt renderer**. If that renderer stops, it must detach the message handle first; unexpected consumer failure cannot be detected automatically. No command-line renderer is bundled.
+
+Captured non-interactive `msg_show` events use source `neovim`, a kind-specific title and literal text (`markdown = false`). Errors (`emsg`, `echoerr`, `lua_error`, `rpc_error`) map to ERROR; `wmsg` maps to WARN; other kinds use INFO. Original chunk text is preserved, but native per-chunk colors are not currently rendered. Append, replace-last and native message IDs update the corresponding record. Native messages have explicit IDs and do not auto-merge as repeated ordinary notifications do.
+
+Routes map a message kind to `show`, `history` or `drop`; unlisted kinds use `show`. Override a default with `"show"` to restore its popups. The global severity, ordinary notification filter and DND still apply; a history-only route cannot be promoted to a popup by the filter. The ingress queue and remembered native IDs are bounded by `max_pending`; an overloaded queue keeps the newest events. `msg_clear` resets append/replacement tracking while cards retain their configured lifetime.
+
+While attached, `:messages` and `g<` open the native history snapshot in the existing history reader, including native entries from before attachment. This does not replay popups or import/duplicate entries into `:Notifications`. Native history has no timestamps; the snapshot uses its opening time. `:Notifications` continues to show the plugin's captured notification/task history, including captured `:echo` output that Neovim itself may not retain. Message capture is session-only and uses the experimental `vim.ui_attach` interface.
+
+Use only one native-message owner. The existing Noice adapter below leaves message capture with Noice; keep this optional feature detached in that setup.
 
 For Noice message routes, [examples/noice.lua](examples/noice.lua) provides an optional configuration-side adapter. Copy it into your config as `lua/integrations/notification_tools_noice.lua`, then set:
 
@@ -326,7 +370,7 @@ The API also provides `dismiss(id?)`, `history(opts?)`, `clear_history()`, `task
 sh tests/run.sh
 ```
 
-Requires Neovim and StyLua. The suite isolates state/cache/data and covers API ownership, fast events, routing/DND, source-aware merging, task lifetimes, Unicode layout, Markdown styles/conceal, history filters and anchored refresh, result retention, reader timeout handling, and cleanup.
+Requires Neovim, StyLua and Python 3. The suite isolates state/cache/data and covers API ownership, fast events, routing/DND, source-aware merging, task lifetimes, Unicode layout, Markdown styles/conceal, history filters and anchored refresh, result retention, reader timeout handling, and cleanup. Native-message tests include an embedded UI with a separate test-only command-line renderer, native fallback, nested input/confirmation and subscription release.
 
 [CI](https://github.com/Jacky-Lzx/notification-tools.nvim/actions/workflows/ci.yml) runs the runtime suite, formatting checks, and LuaLS consumer contracts on **Neovim 0.10.0** and the **latest stable release** for every push and pull request. StyLua and LuaLS versions are pinned in the workflow.
 

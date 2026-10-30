@@ -70,6 +70,16 @@
 ---@field enabled? boolean Subscribe to work-done progress without replacing LSP handlers.
 ---@field ignore? string[] Client names to ignore.
 
+---@class notification_tools.MessagesConfig
+---@field enabled? boolean Opt in; no UI subscription until a ready cmdline provider calls attach_messages().
+---@field routes? table<string, notification_tools.Route> msg_show kind to route; unlisted kinds show.
+
+---A ready external cmdline/prompt renderer owns this subscription's lifetime.
+---Detach before stopping that renderer. setup()/teardown() invalidate the handle.
+---@class notification_tools.MessageHandle
+---@field is_active fun(self: notification_tools.MessageHandle): boolean
+---@field detach fun(self: notification_tools.MessageHandle)
+
 ---All setup fields are optional; nested tables override their defaults.
 ---@class notification_tools.Config
 ---@field notify? boolean Own vim.notify; false keeps only the explicit API.
@@ -82,6 +92,7 @@
 ---@field notification? notification_tools.NotificationConfig
 ---@field progress? notification_tools.ProgressConfig
 ---@field lsp? notification_tools.LspConfig
+---@field messages? notification_tools.MessagesConfig
 ---@field icons? table<string, string> Severity names (ERROR/WARN/INFO/DEBUG/TRACE) to icons.
 
 ---@class notification_tools.Replace

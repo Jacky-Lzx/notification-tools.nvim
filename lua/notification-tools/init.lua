@@ -54,22 +54,29 @@ local function ensure()
   end
 end
 
----Display a top-right notification. timeout=0 pins it until dismissed.
 ---@param message any Strings are displayed directly; tables use vim.inspect.
 ---@param level? notification_tools.Level
 ---@param opts? notification_tools.NotifyOptions
+---@param route? notification_tools.Route
 ---@return notification_tools.ID? id Nil when filtered or discarded.
-function M.notify(message, level, opts)
+local function notify(message, level, opts, route)
   ensure()
   local owner, current = state, generation
-  local id, filter_error = model.notify(owner, message, level, opts)
+  local id, filter_error = model.notify(owner, message, level, opts, route)
   if state ~= owner then
     return nil
   end
   if filter_error then
     vim.schedule(function()
       if current == generation then
-        vim.api.nvim_err_writeln("notification-tools filter: " .. filter_error)
+        local function report()
+          vim.api.nvim_err_writeln("notification-tools filter: " .. filter_error)
+        end
+        if package.loaded["notification-tools.messages"] then
+          require("notification-tools.messages").ignore(report)
+        else
+          report()
+        end
       end
     end)
   end
@@ -77,6 +84,15 @@ function M.notify(message, level, opts)
     changed()
   end
   return id
+end
+
+---Display a top-right notification. timeout=0 pins it until dismissed.
+---@param message any Strings are displayed directly; tables use vim.inspect.
+---@param level? notification_tools.Level
+---@param opts? notification_tools.NotifyOptions
+---@return notification_tools.ID? id Nil when filtered or discarded.
+function M.notify(message, level, opts)
+  return notify(message, level, opts)
 end
 
 ---DND only affects ordinary popups. Suppressed notices are not replayed.
@@ -124,6 +140,30 @@ end
 
 local function reading_zindex()
   return math.max(state.config.notification.window.zindex, state.config.progress.window.zindex) + 1
+end
+
+---Called by a ready cmdline renderer; detach the returned handle before stopping it.
+---@return notification_tools.MessageHandle? handle Nil when messages.enabled is false.
+function M.attach_messages()
+  ensure()
+  if not state.config.messages.enabled then
+    return nil
+  end
+  return require("notification-tools.messages").attach(state.config, notify, function(records)
+    local view = get_view()
+    view.history(function()
+      return records
+    end, {}, function(id)
+      for _, record in ipairs(records) do
+        if record.id == id then
+          view.notification(function()
+            return { record }
+          end, nil, reading_zindex())
+          return
+        end
+      end
+    end, reading_zindex())
+  end)
 end
 
 ---@param opts? notification_tools.HistoryFilters
@@ -253,6 +293,9 @@ end
 ---Release owned resources and restore vim.notify only while still owned.
 function M.teardown()
   generation = generation + 1
+  if package.loaded["notification-tools.messages"] then
+    require("notification-tools.messages").detach()
+  end
   if scheduler then
     scheduler:close()
     scheduler = nil

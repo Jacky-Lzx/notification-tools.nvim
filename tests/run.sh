@@ -7,9 +7,12 @@ trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 export XDG_STATE_HOME="$test_root/state"
 export XDG_CACHE_HOME="$test_root/cache"
 export XDG_DATA_HOME="$test_root/data"
-for suite in tests/startup_lazy.lua tests/core.lua tests/routing.lua tests/integrations.lua tests/layout.lua tests/tabs.lua tests/performance.lua tests/progress_bars.lua tests/scheduler.lua tests/incremental.lua tests/architecture.lua tests/styles.lua tests/markdown.lua tests/history.lua tests/browsing.lua tests/task_history.lua tests/reading.lua; do
+export NVIM_LOG_FILE="$test_root/nvim.log"
+export PYTHONDONTWRITEBYTECODE=1
+for suite in tests/startup_lazy.lua tests/core.lua tests/routing.lua tests/messages.lua tests/integrations.lua tests/layout.lua tests/tabs.lua tests/performance.lua tests/progress_bars.lua tests/scheduler.lua tests/incremental.lua tests/architecture.lua tests/styles.lua tests/markdown.lua tests/history.lua tests/browsing.lua tests/task_history.lua tests/reading.lua; do
   nvim --headless -n -u NONE -i NONE --noplugin -l "$suite"
 done
+python3 tests/messages_ui.py
 if [ -n "${NOTIFICATION_TOOLS_NOICE_ROOT:-}" ] && [ -n "${NOTIFICATION_TOOLS_NUI_ROOT:-}" ]; then
   nvim --headless -n -u NONE -i NONE --noplugin -l tests/noice.lua
 fi

@@ -99,6 +99,58 @@ is checked first. Errors/invalid results are reported without recursive notify,
 and fall back to "show". source defaults to title and is inherited on replacement.
 Different sources do not auto-merge.
 
+NATIVE MESSAGES                                *notification-tools-messages*
+
+Native :echo/print()/command messages are separate from vim.notify. Capture is
+optional and requires a compatible external command-line/prompt renderer:
+>
+    tools.setup({ messages = {
+      enabled = true,
+      routes = { lua_print = "history", search_count = "drop" },
+    } })
+<
+messages.enabled defaults to false. Setting it true alone does not subscribe to
+UI events or change the native command line. With no external handoff, ordinary
+notifications/tasks/LSP progress remain available and native messages stay native.
+
+The external renderer calls tools.attach_messages() AFTER it is ready. This
+returns nil when disabled, or a handle with :is_active() and :detach(). Only one
+handle may be active. Detach BEFORE stopping the external renderer. Detach is
+idempotent, ignores stale handles and discards queued events. setup()/teardown()
+invalidate the handle; a running renderer must repeat the handoff after setup.
+Unexpected consumer shutdown cannot be detected automatically.
+
+Neovim couples ext_messages to ext_cmdline. The external consumer must render
+cmdline_* events, completion and interactive prompts (including msg_show kinds
+confirm, confirm_sub, number_prompt, return_prompt), and any status widgets it
+needs (msg_showmode, msg_showcmd, msg_ruler). This plugin never consumes those
+events and does not include a command-line renderer. Do not attach without a
+working consumer. See examples/messages.lua for the handoff lifecycle.
+
+Non-interactive msg_show events become literal-text notifications with source
+neovim and a kind-specific title. emsg/echoerr/lua_error/rpc_error map to ERROR,
+wmsg to WARN and other kinds to INFO. Text chunks are concatenated without added
+spacing; native chunk colors are not rendered. Native IDs, replace_last and
+append update records; explicit IDs mean native messages do not auto-merge.
+
+messages.routes maps kinds to show/history/drop; unlisted kinds use show.
+Defaults: search_count=drop, search_cmd=drop, bufwrite=history. Override with show
+to restore a default popup. Ordinary minimum severity, notification.filter and
+DND still apply. The filter cannot promote history to show. Interactive kinds
+cannot be routed to notifications. Ingress and native-ID tracking are bounded by
+max_pending; overflow retains the newest queued events. msg_clear resets update
+tracking; notification cards keep their own configured lifetime.
+
+While attached, :messages/g< open the native history snapshot in the existing
+reader, including native entries from before attachment. This neither replays
+popups nor imports entries into :Notifications. Native history lacks timestamps;
+snapshot entries use the opening time. :Notifications shows captured messages
+and task results, including :echo output absent from Neovim's own history.
+
+Only one native-message owner should be active. With the existing Noice adapter,
+leave this feature detached and let Noice own native messages. The optional
+capture uses the experimental vim.ui_attach interface.
+
 PROGRESS                                       *notification-tools-progress*
 >
     local task = tools.progress({

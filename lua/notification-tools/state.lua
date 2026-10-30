@@ -44,7 +44,7 @@ function M.trim(state, items)
   end
 end
 
-function M.notify(state, message, level, opts)
+function M.notify(state, message, level, opts, route)
   opts = opts or {}
   local explicit = opts.id ~= nil or opts.replace ~= nil
   local id = opts.id or opts.replace
@@ -80,7 +80,8 @@ function M.notify(state, message, level, opts)
     markdown = state.config.notification.markdown
   end
   assert(type(markdown) == "boolean", "markdown must be a boolean")
-  local route, filter_error = "show", nil
+  route = route or "show"
+  local filter_error
   if state.config.notification.filter then
     local ok, result = pcall(state.config.notification.filter, {
       id = id,
@@ -94,7 +95,10 @@ function M.notify(state, message, level, opts)
       timeout = timeout,
     })
     if ok and (result == nil or vim.tbl_contains({ "show", "history", "drop" }, result)) then
-      route = result or "show"
+      -- A source's history-only route cannot be promoted to a popup by a filter.
+      if result == "drop" or route == "show" then
+        route = result or route
+      end
     else
       filter_error = ok and "expected show, history, drop or nil" or tostring(result)
     end

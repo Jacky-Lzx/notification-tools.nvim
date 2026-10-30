@@ -17,6 +17,17 @@ function M.check()
     vim.health.warn("Snacks notifier is loaded; disable it when notification-tools owns vim.notify")
   end
   vim.health.info("Keep Noice notify.enabled=false and lsp.progress.enabled=false")
+  if
+    package.loaded["notification-tools.messages"]
+    and require("notification-tools.messages").active()
+  then
+    vim.health.ok(
+      "Native messages attached; the consumer must keep its cmdline/prompt renderer active"
+    )
+    vim.health.info("Disable competing message owners, including Noice messages, while attached")
+  else
+    vim.health.info("Native messages not attached; no cmdline provider has handed them over")
+  end
 end
 
 return M

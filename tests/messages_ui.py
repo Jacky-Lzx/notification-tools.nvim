@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Exercise native fallback and a separate cmdline renderer with a real RPC UI."""
+import importlib.util
+import os
+from pathlib import Path
+import signal
+
+ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("capture", ROOT / "scripts/screenshots.py")
+capture = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(capture)
+
+
+def main():
+    signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(TimeoutError("UI test timed out")))
+    signal.alarm(25)
+    ui = capture.Capture(os.environ.copy())
+
+    def lua(code):
+        return ui.request("nvim_exec_lua", [code, []])
+
+    def keys(value):
+        ui.request("nvim_input", [value])
+        lua("vim.wait(40)")
+
+    def screen():
+        return "\n".join("".join(cell[0] for cell in row) for row in ui.grid)
+
+    try:
+        ui.request("nvim_ui_attach", [100, 32, {"rgb": True, "ext_linegrid": True}])
+        lua("vim.opt.rtp:prepend(vim.fn.getcwd()); tools = require('notification-tools'); "
+            "tools.setup({ timeout = 0, messages = { enabled = true } })")
+        assert lua("return vim.o.cmdheight") == 1
+        assert not lua("return package.loaded['notification-tools.messages'] ~= nil")
+        keys(":echomsg")
+        assert ":echomsg" in screen().splitlines()[-1], screen()
+        keys(" 'native-before'<CR>")
+        assert "native-before" in screen(), screen()
+        assert lua("return #tools.history()") == 0
+
+        lua("provider = dofile('tests/fixtures/cmdline.lua'); lease = assert(tools.attach_messages())")
+        keys(":echo '**captured**'<CR>")
+        records = lua("return tools.history()")
+        assert any(r["message"] == "**captured**" and not r["markdown"] for r in records), records
+        assert "**captured**" in screen(), screen()
+        assert lua("return vim.tbl_contains(provider.events, 'cmdline_show')")
+        assert lua("return vim.tbl_contains(provider.events, 'cmdline_hide')")
+        keys(":echo")
+        assert ":echo" in screen(), screen()
+        keys("<Esc>")
+
+        # The provider, rather than notifications, owns nested input and confirms.
+        keys(":lua vim.g.input_result = vim.fn.input('lease-input: ')<CR>")
+        assert "lease-input:" in screen(), screen()
+        keys("answer<CR>")
+        assert lua("return vim.g.input_result") == "answer"
+        # Older Neovim blocks ordinary RPC execution and discards typeahead
+        # while confirm() waits. Answer only after the provider sees the prompt.
+        ui.request("nvim_input", [":lua vim.g.confirm_result = vim.fn.confirm('lease-confirm', '&Yes\\n&No', 2)<CR>"])
+        while True:
+            message = capture.unpack(ui.process.stdout)
+            if message[0] == 2 and message[1] == "notification-tools-test-prompt":
+                break
+            if message[0] == 2 and message[1] == "redraw":
+                ui.redraw(message[2])
+        keys("n")
+        assert lua("return vim.g.confirm_result") == 2
+        assert not any("lease-confirm" in r["message"] for r in lua("return tools.history()"))
+
+        keys(":echoerr 'captured-error'<CR>")
+        assert any("captured-error" in r["message"] and r["level"] == 4 for r in lua("return tools.history()"))
+        before = lua("return #tools.history()")
+        keys(":messages<CR>")
+        assert lua("return vim.bo.filetype") == "notification-tools-history"
+        assert "native-before" in lua("return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\\n')")
+        assert lua("return #tools.history()") == before
+        keys("<CR>")
+        assert lua("return vim.b.notification_tools_detail")
+        keys("q")
+
+        # Release in order, then check actual original cmdline/message rendering.
+        lua("lease:detach(); provider.stop(); tools.dismiss()")
+        assert lua("return not lease:is_active() and vim.o.cmdheight == 1")
+        keys(":echo")
+        assert ":echo" in screen().splitlines()[-1], screen()
+        keys(" 'native-after'<CR>")
+        assert "native-after" in screen(), screen()
+        assert lua("return #tools.history()") == before
+        lua("tools.teardown()")
+        print("messages UI: native fallback, separate cmdline renderer, nested input/confirm, errors, native history and release passed")
+    finally:
+        signal.alarm(0)
+        ui.close()
+
+
+if __name__ == "__main__":
+    main()

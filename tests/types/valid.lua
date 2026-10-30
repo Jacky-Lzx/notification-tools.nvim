@@ -12,9 +12,17 @@ local opts = {
     end,
   },
   lsp = { ignore = { "ignored" } },
+  messages = { enabled = true, routes = { lua_print = "history", search_count = "drop" } },
 }
 ---@type notification_tools.API
 local api = tools.setup(opts)
+local messages = api.attach_messages()
+if messages then
+  ---@type boolean
+  local attached = messages:is_active()
+  messages:detach()
+  assert(attached)
+end
 local id = api.notify({ "message" }, "Warn", { title = "Build", timeout = 0 })
 api.notify("updated", 3, { replace = id and { id = id } or nil, markdown = false })
 local task = api.progress({ id = "consumer:one", percentage = 0, history = false })

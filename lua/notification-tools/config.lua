@@ -46,6 +46,10 @@ M.defaults = {
     spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
   },
   lsp = { enabled = true, ignore = {} },
+  messages = {
+    enabled = false,
+    routes = { search_count = "drop", search_cmd = "drop", bufwrite = "history" },
+  },
   icons = { ERROR = "✖", WARN = "▲", INFO = "●", DEBUG = "◆", TRACE = "·" },
 }
 
@@ -83,6 +87,7 @@ function M.resolve(opts)
     { config, "notify" },
     { config.progress, "enabled" },
     { config.lsp, "enabled" },
+    { config.messages, "enabled" },
     { config.notification, "merge_duplicates" },
     { config.notification, "markdown" },
     { config.notification, "timestamp" },
@@ -175,6 +180,14 @@ function M.resolve(opts)
     "progress.style must be bar or compact"
   )
   config.progress.history = M.task_history(config.progress.history)
+  assert(type(config.messages.routes) == "table", "messages.routes must be a table")
+  for kind, route in pairs(config.messages.routes) do
+    assert(type(kind) == "string", "message kinds must be strings")
+    assert(
+      vim.tbl_contains({ "show", "history", "drop" }, route),
+      "message routes must be show, history or drop"
+    )
+  end
   config.level = M.level(config.level)
   return config
 end
