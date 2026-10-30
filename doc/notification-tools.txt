@@ -28,6 +28,10 @@ are preserved. Supported spans stay styled across automatic window wrapping.
 Markup spans are limited to one logical line. Block layouts/HTML are not rendered;
 fenced code blocks stay literal. This is not a full Markdown document renderer.
 Titles/tasks remain plain text, and history keeps the original Markdown source.
+The history window highlights time, level, title, body and Markdown spans.
+Markdown delimiters/URLs are concealed without changing buffer text. Press c
+to reveal/hide source; yanks copy original Markdown. Conceal settings are local
+to this history window. A notice with markdown=false stays literal.
 Set notification.markdown=false globally, or pass opts.markdown=false for a raw
 message. Per-notice mode is inherited on explicit updates. Different modes never
 auto-merge, even with identical source text.
@@ -129,7 +133,8 @@ the prior vim.notify only when this plugin still owns the function.
 
 COMMANDS                                       *notification-tools-commands*
 
-:Notifications           Show history; q or Escape closes it.
+:Notifications           Show colored history with Markdown conceal. c toggles
+                         source visibility; q or Escape closes it.
 :NotificationsDismiss    Dismiss ordinary notifications.
 :NotificationsClear      Clear notification history.
 :NotificationToolsDemo   Show example notifications and a progressing task.

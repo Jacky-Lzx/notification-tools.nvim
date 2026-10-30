@@ -75,7 +75,8 @@ vim.notify("literal **stars**", nil, { markdown = false })
 链接显示文字并加高亮，完整地址可在历史中查看。反斜杠可转义标点，行内代码中的星号等字符会原样显示。
 格式范围限于单个逻辑行；窗口自动折行时样式会延续。标题、列表、表格、HTML 等块级布局不作特殊渲染，围栏代码块保留原文。这是轻量的行内显示支持，并非完整 Markdown 文档渲染器。
 
-原始消息和 `details` 始终保留在 `history()` / `:Notifications` 中；去重也使用原文。通知标题和任务面板继续按纯文本显示。
+原始消息和 `details` 始终保留在 `history()` / 历史缓冲区中；去重也使用原文。通知标题和任务面板继续按纯文本显示。
+`:Notifications` 对时间、级别、标题和正文分别高亮，并通过 conceal 隐藏 Markdown 标记。按 `c` 可切换原文显示、查看链接地址；复制仍得到原始 Markdown。conceal 设置仅作用于历史窗口，单条 `markdown = false` 的内容会保持原样。
 设置 `notification.markdown = false` 可全局关闭；单条 `opts.markdown` 优先，并在同 ID 更新时继承。不同 Markdown 模式的通知不会自动合并。
 
 ## 其他插件接入任务 API
@@ -204,7 +205,7 @@ LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results �
 
 ## 命令和主题
 
-- `:Notifications`：可滚动、自动换行的历史浮窗，`q` / `<Esc>` 关闭。
+- `:Notifications`：带颜色和 Markdown conceal 的历史浮窗，`c` 切换原文，`q` / `<Esc>` 关闭。
 - `:NotificationsDismiss`：关闭普通通知。
 - `:NotificationsClear`：清空历史。
 - `:NotificationToolsDemo`：预览通知和进度。
@@ -236,3 +237,4 @@ NOTIFICATION_TOOLS_NUI_ROOT=/path/to/nui.nvim sh tests/run.sh
 真实 TUI 验证脚本为 `tests/tui.lua`，运行方式：`nvim -n -u tests/tui.lua -i NONE`。
 它自动检查浮窗位置、屏幕文本、Insert 模式编辑和窗口复用，结果写入 `$NOTIFICATION_TOOLS_TUI_RESULT`（默认 `/private/tmp/notification-tools-tui.json`），检查结束后保留预览。
 可设置 `NOTIFICATION_TOOLS_THEME_ROOT=/path/to/catppuccin` 验证 Catppuccin Mocha 配色；设置 `NOTIFICATION_TOOLS_TUI_EXIT=1` 在验证后自动退出。
+`nvim -n -u tests/history_tui.lua -i NONE` 单独验证历史窗口的颜色、当前行 conceal、原文切换和窗口选项恢复，使用同一组环境变量。

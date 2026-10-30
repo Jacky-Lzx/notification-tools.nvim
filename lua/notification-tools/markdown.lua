@@ -135,14 +135,15 @@ local function link_end(text, position, work)
 end
 
 local inline
-inline = function(text, base, depth, work)
+inline = function(text, base, depth, work, source)
   if depth > 8 then
-    return { { text, base } }
+    return { { text, base } }, source and { { col = 0, finish = #text, hl = base } } or nil
   end
   local tokens, start, i = {}, 1, 1
   local function literal(finish)
     if finish >= start then
-      tokens[#tokens + 1] = { text = text:sub(start, finish), group = base }
+      tokens[#tokens + 1] =
+        { text = text:sub(start, finish), group = base, col = start - 1, finish = finish }
     end
   end
   while i <= #text do
@@ -152,16 +153,25 @@ inline = function(text, base, depth, work)
     local char, next_position = text:sub(i, i)
     local token
     if char == "\\" and text:sub(i + 1, i + 1):match("%p") then
-      token, next_position = { text = text:sub(i + 1, i + 1), group = base }, i + 2
+      token, next_position =
+        { text = text:sub(i + 1, i + 1), group = base, content_col = i, content_end = i + 1 }, i + 2
     elseif char == "`" then
       local count = run(text, i, char)
       local finish = code_end(text, i, count, work)
       if finish then
         local code = text:sub(i + count, finish - 1)
+        local content_col, content_end = i + count - 1, finish - 1
         if code:sub(1, 1) == " " and code:sub(-1) == " " and code:find("[^ ]") then
           code = code:sub(2, -2)
+          content_col, content_end = content_col + 1, content_end - 1
         end
-        token, next_position = { text = code, group = "MarkdownCode" }, finish + count
+        token, next_position =
+          {
+            text = code,
+            group = "MarkdownCode",
+            content_col = content_col,
+            content_end = content_end,
+          }, finish + count
       else
         -- Unmatched runs stay literal and must not be reconsidered one tick at a time.
         token, next_position = { text = string.rep(char, count), group = base }, i + count
@@ -169,8 +179,9 @@ inline = function(text, base, depth, work)
     elseif char == "[" and text:sub(i - 1, i - 1) ~= "!" then
       local label_end, finish = link_end(text, i, work)
       if label_end and label_end > i + 1 then
-        token =
-          { children = inline(text:sub(i + 1, label_end - 1), "MarkdownLink", depth + 1, work) }
+        local children, spans =
+          inline(text:sub(i + 1, label_end - 1), "MarkdownLink", depth + 1, work, source)
+        token = { children = children, spans = spans, label_col = i, label_end = label_end - 1 }
         next_position = finish + 1
       end
     elseif char == "*" or char == "_" or char == "~" then
@@ -192,6 +203,7 @@ inline = function(text, base, depth, work)
     end
     if token then
       literal(i - 1)
+      token.col, token.finish = i - 1, next_position - 1
       tokens[#tokens + 1] = token
       i, start = next_position, next_position
     else
@@ -223,6 +235,8 @@ inline = function(text, base, depth, work)
             change(stack[j] + 1, style, 1)
             change(index, style, -1)
             opening.remaining, token.remaining = opening.remaining - size, token.remaining - size
+            opening.open_used = (opening.open_used or 0) + size
+            token.close_used = (token.close_used or 0) + size
             if opening.remaining == 0 then
               table.remove(stack, j)
             end
@@ -243,6 +257,22 @@ inline = function(text, base, depth, work)
     end
   end
   local chunks, active = {}, { Bold = 0, Italic = 0, Strike = 0 }
+  local spans = source and {} or nil
+  local function span(col, finish, group, style, conceal)
+    if spans and finish > col then
+      spans[#spans + 1] =
+        { col = col, finish = finish, hl = group, style = style, conceal = conceal }
+    end
+  end
+  local function combine(style, other)
+    local result = ""
+    for _, name in ipairs({ "Bold", "Italic", "Strike" }) do
+      if (style and style:find(name, 1, true)) or (other and other:find(name, 1, true)) then
+        result = result .. name
+      end
+    end
+    return result ~= "" and result or nil
+  end
   for index, token in ipairs(tokens) do
     for name, amount in pairs(changes[index] or {}) do
       active[name] = active[name] + amount
@@ -253,13 +283,18 @@ inline = function(text, base, depth, work)
     style = style ~= "" and style or nil
     if token.children then
       for _, child in ipairs(token.children) do
-        local combined = ""
-        for _, name in ipairs({ "Bold", "Italic", "Strike" }) do
-          if active[name] > 0 or (child[3] and child[3]:find(name, 1, true)) then
-            combined = combined .. name
-          end
-        end
-        push(chunks, child[1], child[2], combined ~= "" and combined or nil)
+        push(chunks, child[1], child[2], combine(style, child[3]))
+      end
+      span(token.col, token.label_col, "Meta", nil, true)
+      span(token.label_end, token.finish, "Meta", nil, true)
+      for _, child in ipairs(token.spans or {}) do
+        span(
+          child.col + token.label_col,
+          child.finish + token.label_col,
+          child.hl,
+          not child.conceal and combine(style, child.style) or nil,
+          child.conceal
+        )
       end
     else
       push(
@@ -268,24 +303,33 @@ inline = function(text, base, depth, work)
         token.group,
         style
       )
+      local col = token.content_col or (token.col + (token.close_used or 0))
+      local finish = token.content_end or (token.finish - (token.open_used or 0))
+      span(token.col, col, "Meta", nil, true)
+      span(col, finish, token.group, style)
+      span(finish, token.finish, "Meta", nil, true)
     end
   end
-  return chunks
+  return chunks, spans
 end
 
-function M.parse(text, base, enabled)
+function M.parse(text, base, enabled, source)
   base = base or "Body"
-  if enabled == false then
+  if enabled == false and not source then
     return { { text, base } }
   end
   local chunks, fence, fence_size = {}, nil, nil
+  local spans = source and {} or nil
   local work = { remaining = math.max(256, #text * 8) }
   for index, line in ipairs(vim.split(text, "\n", { plain = true })) do
     if index > 1 then
       push(chunks, "\n", base)
     end
     local marker = line:match("^ ? ? ?(```+)") or line:match("^ ? ? ?(~~~+)")
-    if fence then
+    local line_spans
+    if enabled == false then
+      push(chunks, line, base)
+    elseif fence then
       push(chunks, line, base)
       if
         marker
@@ -299,12 +343,28 @@ function M.parse(text, base, enabled)
       fence, fence_size = marker:sub(1, 1), #marker
       push(chunks, line, base)
     else
-      for _, chunk in ipairs(inline(line, base, 0, work)) do
+      local line_chunks
+      line_chunks, line_spans = inline(line, base, 0, work, source)
+      for _, chunk in ipairs(line_chunks) do
         push(chunks, chunk[1], chunk[2], chunk[3])
       end
     end
+    if spans then
+      line_spans = line_spans or { { col = 0, finish = #line, hl = base } }
+      for _, mark in ipairs(line_spans) do
+        if mark.finish > mark.col then
+          mark.row = index - 1
+          spans[#spans + 1] = mark
+        end
+      end
+    end
   end
-  return chunks
+  return chunks, spans
+end
+
+function M.source(text, base, enabled)
+  local _, spans = M.parse(text, base, enabled, true)
+  return spans
 end
 
 function M.wrap(chunks, width, limit)
