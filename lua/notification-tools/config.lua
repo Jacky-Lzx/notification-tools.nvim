@@ -34,6 +34,7 @@ M.defaults = {
     enabled = true,
     max_items = 6,
     done_ttl = 1500,
+    history = "errors",
     stale_timeout = 120000,
     interval = 80,
     group_by_source = true,
@@ -54,6 +55,14 @@ function M.level(value)
   assert(
     type(value) == "number" and value >= 0 and value <= 5 and value == math.floor(value),
     "invalid notification level"
+  )
+  return value
+end
+
+function M.task_history(value)
+  assert(
+    value == false or value == "errors" or value == "all",
+    "progress history must be false, errors or all"
   )
   return value
 end
@@ -154,6 +163,7 @@ function M.resolve(opts)
     "notification.filter must be a function"
   )
   config.notification.dnd_level = M.level(config.notification.dnd_level)
+  config.progress.history = M.task_history(config.progress.history)
   config.level = M.level(config.level)
   return config
 end

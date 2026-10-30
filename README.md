@@ -116,7 +116,7 @@ tools.dismiss() -- 关闭所有普通通知，保留任务和历史
 设置 `notification.merge_duplicates = false` 可关闭自动合并。
 
 `tools.history()` 返回按时间从旧到新排列的独立快照；`tools.clear_history()` 清空历史。
-历史只保存在当前会话内，任务结果不写入通知历史。
+历史只保存在当前会话内；任务默认仅记录失败和超时，可按下方策略调整。
 
 ### 行内 Markdown
 
@@ -155,7 +155,7 @@ task:finish("PDF ready")
 ```
 
 - `progress(opts)` 返回 `{ id, update, finish, cancel, is_active }` 句柄。
-- `handle:update(opts)` 可更新 `title/source/message/percentage`；省略字段保持原值。
+- `handle:update(opts)` 可更新 `title/source/message/percentage/history`；省略字段保持原值。
 - `handle:finish(message?, status?)` 的状态为 `success`（默认）、`error` 或 `cancelled`。
 - `handle:cancel(message?)` 结束显示状态；实际取消工作由调用方负责。
 - `handle:is_active()` 判断任务是否仍可更新。相同活动 ID 返回同一句柄；已结束的 ID 可重用。
@@ -166,6 +166,21 @@ task:finish("PDF ready")
 默认 120 秒无更新的任务会标记超时，结束结果保留 1.5 秒。
 长时间静默任务可设置 `progress.stale_timeout = 0`，并由生产者保证结束。
 `max_pending` 分别限制活动通知和任务记录数，超过时淘汰最旧记录；默认各 100 条。
+
+### 任务结果回溯
+
+`progress.history = "errors"`（默认）将失败和无更新超时的任务写入通知历史；
+`false` 关闭记录，`"all"` 同时保留成功和取消。单个任务可通过
+`progress({ history = false })` 或 `handle:update({ history = "all" })` 覆盖全局策略。
+
+结果记录包含标题、来源、最终消息、状态和耗时，任务面板消失后仍可通过 `:Notifications` 查看、筛选。
+每次运行有独立的历史记录 ID，`task_id` 保存生产者的原 ID，复用任务 ID 不会覆盖旧结果。
+`history()` 中此类记录的 `kind = "task"`，并包含 `status` 和 `duration`（毫秒）；普通通知的 `kind = "notification"`。
+成功映射 INFO、失败映射 ERROR、取消映射 WARN；任务文本按纯文本显示。
+
+结果只写历史，不额外弹窗；使用任务自己的记录策略，不经过普通通知的过滤器、最低等级或免打扰。
+任务结果与普通通知共享 `history_size` 容量；`history_size = 0` 关闭全部历史。
+清空任务和旧句柄的迟到回调不会产生结果记录。
 
 ## 参考现有 Neovim 配置迁移
 
@@ -225,6 +240,7 @@ require("notification-tools").setup({
     enabled = true, -- 仅控制显示，任务 API 仍可使用
     max_items = 6,
     done_ttl = 1500,
+    history = "errors", -- false：不记录；"all"：成功/失败/取消均记录
     stale_timeout = 120000,
     interval = 80,
     group_by_source = true,

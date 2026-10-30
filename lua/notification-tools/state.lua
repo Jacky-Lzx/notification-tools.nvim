@@ -58,6 +58,47 @@ function M.opacity(item, duration, now)
   return math.max(0, math.min(1, (item.expires - (now or M.now())) / duration))
 end
 
+-- One terminal transition for explicit completion and inactivity timeouts.
+function M.finish_task(state, task, message, status)
+  local now = M.now()
+  task.done, task.finished, task.status, task.message = true, now, status, message
+  if status == "success" and task.percentage then
+    task.percentage = 100
+  end
+  task.expires = now + state.config.progress.done_ttl
+  task.lifetime = state.config.progress.done_ttl
+  if
+    state.config.history_size == 0
+    or task.history == false
+    or (task.history == "errors" and status ~= "error")
+  then
+    return
+  end
+  local duration = math.max(0, now - task.started)
+  local labels = { success = "Completed", error = "Failed", cancelled = "Cancelled" }
+  local levels =
+    { success = vim.log.levels.INFO, error = vim.log.levels.ERROR, cancelled = vim.log.levels.WARN }
+  state.serial = state.serial + 1
+  M.archive(state, {
+    id = M.id(),
+    kind = "task",
+    task_id = task.id,
+    title = task.title,
+    source = task.source ~= "" and task.source or task.title,
+    message = task.message,
+    details = string.format("%s · %.1fs", labels[status], duration / 1000),
+    level = levels[status],
+    status = status,
+    duration = duration,
+    markdown = false,
+    time = os.time(),
+    order = state.serial,
+    count = 1,
+    timeout = 0,
+    display = false,
+  })
+end
+
 function M.expire(state)
   local now = M.now()
   for id, notice in pairs(state.notices) do
@@ -70,12 +111,7 @@ function M.expire(state)
       state.tasks[id] = nil
     elseif not task.done and state.config.progress.stale_timeout > 0 then
       if now - task.updated >= state.config.progress.stale_timeout then
-        task.done = true
-        task.finished = now
-        task.status = "error"
-        task.message = "Timed out"
-        task.expires = now + state.config.progress.done_ttl
-        task.lifetime = state.config.progress.done_ttl
+        M.finish_task(state, task, "Timed out", "error")
       end
     end
   end

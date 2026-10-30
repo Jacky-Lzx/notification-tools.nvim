@@ -185,6 +185,7 @@ function M.notify(message, level, opts)
   state.serial = state.serial + 1
   local notice = {
     id = id,
+    kind = "notification",
     message = message_text,
     level = level,
     title = title,
@@ -265,6 +266,7 @@ function M.show_history(opts)
 end
 
 local function update_task(task, opts)
+  local history = opts.history ~= nil and config.task_history(opts.history)
   local percentage
   if opts.percentage ~= nil then
     local value = opts.percentage
@@ -281,6 +283,9 @@ local function update_task(task, opts)
   end
   if percentage ~= nil then
     task.percentage = percentage
+  end
+  if opts.history ~= nil then
+    task.history = history
   end
   task.updated = model.now()
 end
@@ -301,6 +306,7 @@ function M.progress(opts)
     title = "Working",
     message = "",
     source = "",
+    history = state.config.progress.history,
     order = state.serial,
     started = model.now(),
   }
@@ -324,18 +330,15 @@ function M.progress(opts)
     if alive() then
       status = status or "success"
       assert(vim.tbl_contains({ "success", "error", "cancelled" }, status), "invalid task status")
-      task.done = true
-      task.finished = model.now()
-      task.status = status
-      task.message = text(
-        message
-          or (status == "success" and "Completed" or status == "error" and "Error" or "Cancelled")
+      model.finish_task(
+        state,
+        task,
+        text(
+          message
+            or (status == "success" and "Completed" or status == "error" and "Error" or "Cancelled")
+        ),
+        status
       )
-      if status == "success" and task.percentage then
-        task.percentage = 100
-      end
-      task.expires = model.now() + state.config.progress.done_ttl
-      task.lifetime = state.config.progress.done_ttl
       changed()
     end
     return self

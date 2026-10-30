@@ -87,7 +87,7 @@ The caller owns its events, handles, and actual work cancellation. The plugin
 does not listen to business-plugin events. Use namespaced IDs to avoid clashes.
 
 progress(opts) returns a handle with id and the following methods:
-  :update(opts)             Update title/source/message/percentage.
+  :update(opts)             Update title/source/message/percentage/history.
   :finish(message?, status?) End with success (default), error or cancelled.
   :cancel(message?)        Mark cancelled; does not cancel the producer's work.
   :is_active()             Whether updates are still accepted.
@@ -102,6 +102,21 @@ onto the main loop and do not take focus.
 tasks() returns newest-first task snapshots. clear_tasks() clears all tasks.
 Completed results remain for progress.done_ttl milliseconds. Silent tasks time
 out after progress.stale_timeout milliseconds; 0 disables this timeout.
+
+TASK RESULTS                                   *notification-tools-task-history*
+
+progress.history="errors" (default) records failures and inactivity timeouts in
+notification history. false disables recording; "all" also records success and
+cancellation. progress({ history = ... }) or handle:update({ history = ... })
+overrides the policy for one task. Clearing/evicting tasks does not record them.
+
+Results include title/source, final message, status and duration (milliseconds).
+Each run gets an independent history ID; task_id preserves the producer ID.
+Task records have kind="task"; ordinary notices have kind="notification".
+Success uses INFO, errors ERROR, cancellations WARN. Task content is plain text.
+Results remain after done_ttl; they share history_size with ordinary notices.
+history_size=0 disables all recording. Results never create extra popups and
+use the task recording policy, bypassing ordinary filters/minimum level/DND.
 
 OPTIONS                                        *notification-tools-options*
 
@@ -131,6 +146,7 @@ progress.window          Inherits window (rounded border), with min_width=24,
 progress.enabled=true   Show the task panel; API remains available when false.
 progress.max_items=6     Maximum visible task entries, excluding source labels.
 progress.done_ttl=1500   Result lifetime in milliseconds.
+progress.history="errors" Failure/timeout history; "all" or false also supported.
 progress.group_by_source=true       One source label per task group.
 progress.show_elapsed=true          Elapsed time when percentage is absent.
 progress.fade_out=240               Fade finished tasks during the final done_ttl
