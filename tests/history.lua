@@ -97,11 +97,10 @@ for _, group in ipairs({
 end
 assert(#concealed >= 6)
 assert(vim.api.nvim_get_hl(0, { name = "NotificationToolsBodyMarkdownBold", link = false }).bold)
-local c = vim.fn.maparg("c", "n", false, true).callback
-c()
-h.eq(0, vim.wo[win].conceallevel)
+for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+  assert(mapping.lhs ~= "c", "history must not map c")
+end
 h.eq(lines, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-c()
 h.eq(2, vim.wo[win].conceallevel)
 -- A theme reload must rebuild derived Markdown styles for a history-only window.
 tools.dismiss()

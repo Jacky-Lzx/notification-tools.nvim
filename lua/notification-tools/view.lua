@@ -368,10 +368,6 @@ function M.history(items)
     "Normal:NotificationToolsNormal,FloatBorder:NotificationToolsBorder"
   history_marks = marks
   refresh_history()
-  vim.keymap.set("n", "c", function()
-    local win = api.nvim_get_current_win()
-    vim.wo[win].conceallevel = vim.wo[win].conceallevel == 0 and 2 or 0
-  end, { buffer = buf, silent = true, desc = "Toggle Markdown conceal" })
   for _, key in ipairs({ "q", "<Esc>" }) do
     vim.keymap.set("n", key, M.close_history, { buffer = buf, silent = true, nowait = true })
   end
