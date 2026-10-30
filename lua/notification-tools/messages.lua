@@ -7,6 +7,12 @@ local ignored = false
 local prompts = { confirm = true, confirm_sub = true, number_prompt = true, return_prompt = true }
 local errors = { emsg = true, echoerr = true, lua_error = true, rpc_error = true }
 
+local function interactive(kind)
+  -- Old numbered-choice prompts have no kind; their UI flush runs in r/rm.
+  return prompts[kind]
+    or (kind == "" and not vim.in_fast_event() and vim.fn.mode(1):sub(1, 1) == "r")
+end
+
 local function text(chunks)
   local parts = {}
   for _, chunk in ipairs(chunks or {}) do
@@ -164,7 +170,7 @@ function M.attach(config, notify, show_history)
     end
     local args = { ... }
     if event == "msg_show" then
-      if prompts[args[1]] then
+      if interactive(args[1]) then
         return -- Never swallow a prompt, insert input, or dismiss a dialog.
       end
     elseif event ~= "msg_clear" and event ~= "msg_history_show" then

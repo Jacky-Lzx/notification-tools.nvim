@@ -370,6 +370,7 @@ function M.setup(opts)
     end
     vim.notify = owned_notify
   end
+  vim.api.nvim_exec_autocmds("User", { pattern = "NotificationToolsReady", modeline = false })
   return M
 end
 

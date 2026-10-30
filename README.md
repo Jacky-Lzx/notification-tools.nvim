@@ -312,7 +312,11 @@ if message_handle then message_handle:detach() end
 
 There is no plugin-name detection or mandatory dependency. With no handoff, notifications, tasks and LSP progress work as usual and the native command line stays intact. The call returns `nil` when `messages.enabled = false`; otherwise only one active handle is allowed. `handle:is_active()` reports ownership. Detach is idempotent, discards queued events and cannot disconnect a newer handle. `setup()`/`teardown()` invalidate the handle; a running consumer must repeat the handoff after reconfiguration. See [examples/messages.lua](examples/messages.lua).
 
+Each successful `setup()` emits the `User NotificationToolsReady` event after entry points and `vim.notify` ownership are ready. Consumers can use it to retry the handoff for either loading order and after reconfiguration. [input-tools.nvim](https://github.com/Jacky-Lzx/input-tools.nvim) provides a separate command-line/prompt/completion renderer and handles this lifecycle automatically.
+
 The consumer must handle `cmdline_*`, completion and interactive prompts, including `msg_show` kinds `confirm`, `confirm_sub`, `number_prompt` and `return_prompt`, plus any status widgets it needs (`msg_showmode`, `msg_showcmd`, `msg_ruler`). These events are never consumed by notification-tools. Neovim couples `ext_messages` to `ext_cmdline`, so **do not call `attach_messages()` without a working command-line/prompt renderer**. If that renderer stops, it must detach the message handle first; unexpected consumer failure cannot be detected automatically. No command-line renderer is bundled.
+
+Older Neovim versions emit numbered choices such as `inputlist()` as unnamed messages while `mode(1)` starts with `r`. Those non-fast prompt events are also left to the consumer; they must not be queued as ordinary notifications while Neovim waits for the answer.
 
 Captured non-interactive `msg_show` events use source `neovim`, a kind-specific title and literal text (`markdown = false`). Errors (`emsg`, `echoerr`, `lua_error`, `rpc_error`) map to ERROR; `wmsg` maps to WARN; other kinds use INFO. Original chunk text is preserved, but native per-chunk colors are not currently rendered. Append, replace-last and native message IDs update the corresponding record. Native messages have explicit IDs and do not auto-merge as repeated ordinary notifications do.
 

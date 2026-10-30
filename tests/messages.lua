@@ -87,6 +87,12 @@ h.eq(6, #tools.history())
 for _, kind in ipairs({ "confirm", "confirm_sub", "number_prompt", "return_prompt" }) do
   h.eq(nil, event(callback, kind, "prompt"))
 end
+local mode = vim.fn.mode
+vim.fn.mode = function()
+  return "rm"
+end
+h.eq(nil, event(callback, "", "legacy numbered choice"))
+vim.fn.mode = mode
 for _, name in ipairs({
   "cmdline_show",
   "cmdline_hide",
@@ -206,6 +212,26 @@ tools.teardown()
 vim.ui_attach, vim.ui_detach = attach, detach
 assert(not pcall(tools.setup, { messages = { enabled = "yes" } }))
 assert(not pcall(tools.setup, { messages = { routes = { echo = "invalid" } } }))
+-- Consumers can join after every complete setup, regardless of loading order.
+local ready = 0
+local ready_group = vim.api.nvim_create_augroup("NotificationToolsReadyTest", { clear = true })
+vim.api.nvim_create_autocmd("User", {
+  group = ready_group,
+  pattern = "NotificationToolsReady",
+  callback = function()
+    ready = ready + 1
+    vim.notify("Ready consumer")
+  end,
+})
+tools.setup()
+h.eq(1, ready)
+h.eq("Ready consumer", tools.history()[1].message)
+tools.setup({ messages = { enabled = true } })
+h.eq(2, ready)
+h.eq("Ready consumer", tools.history()[1].message)
+tools.teardown()
+h.eq(2, ready)
+vim.api.nvim_del_augroup_by_id(ready_group)
 print(
   "messages: opt-in/provider gating, routing, append/replace, prompts, native history, bounded queue and leases passed"
 )

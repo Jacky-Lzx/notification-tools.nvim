@@ -120,12 +120,20 @@ idempotent, ignores stale handles and discards queued events. setup()/teardown()
 invalidate the handle; a running renderer must repeat the handoff after setup.
 Unexpected consumer shutdown cannot be detected automatically.
 
+Each successful setup emits User NotificationToolsReady after entry points and
+vim.notify ownership are ready. Consumers may retry the handoff in this event
+to support either loading order and notification reconfiguration. The separate
+input-tools.nvim plugin provides this command-line/prompt/completion consumer.
+
 Neovim couples ext_messages to ext_cmdline. The external consumer must render
 cmdline_* events, completion and interactive prompts (including msg_show kinds
 confirm, confirm_sub, number_prompt, return_prompt), and any status widgets it
 needs (msg_showmode, msg_showcmd, msg_ruler). This plugin never consumes those
 events and does not include a command-line renderer. Do not attach without a
 working consumer. See examples/messages.lua for the handoff lifecycle.
+
+Older numbered-choice prompts may have an empty kind and mode(1) beginning with
+r. Non-fast events in that state are also left to the interactive consumer.
 
 Non-interactive msg_show events become literal-text notifications with source
 neovim and a kind-specific title. emsg/echoerr/lua_error/rpc_error map to ERROR,
