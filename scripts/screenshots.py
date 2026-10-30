@@ -162,6 +162,7 @@ def svg(capture, title, font):
             cx, cy, radius = x + cell_width / 2, y + cell_height / 2, cell_width / 2
             box = {
                 "─": f"M {x},{cy} H {x + cell_width}",
+                "━": f"M {x},{cy} H {x + cell_width}",
                 "│": f"M {cx},{y} V {y + cell_height}",
                 "╭": f"M {cx},{y + cell_height} V {cy + radius} Q {cx},{cy} {x + cell_width},{cy}",
                 "╮": f"M {x},{cy} Q {cx},{cy} {cx},{cy + radius} V {y + cell_height}",
@@ -169,7 +170,8 @@ def svg(capture, title, font):
                 "╯": f"M {x},{cy} Q {cx},{cy} {cx},{cy - radius} V {y}",
             }
             if char in box:
-                foregrounds.append(f'<path d="{box[char]}" fill="none" stroke="{color(fg)}" stroke-width="1.2"/>')
+                stroke = 3 if char == "━" else 1.2
+                foregrounds.append(f'<path d="{box[char]}" fill="none" stroke="{color(fg)}" stroke-width="{stroke}"/>')
                 continue
             if char == "▎":
                 foregrounds.append(f'<rect x="{x}" y="{y}" width="{cell_width / 4}" height="{cell_height}" fill="{color(fg)}"/>')

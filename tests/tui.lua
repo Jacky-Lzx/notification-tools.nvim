@@ -26,6 +26,7 @@ vim.api.nvim_buf_set_lines(0, 0, -1, false, {
 vim.bo.filetype = "lua"
 local original_buf, original_win = vim.api.nvim_get_current_buf(), vim.api.nvim_get_current_win()
 local task, notice
+local waiting_bar, waiting_changed
 local snapshots = {}
 local failed = false
 local function screen()
@@ -48,6 +49,16 @@ local function floats()
     end
   end
   return result
+end
+local function preview_bar()
+  for _, buf in pairs(floats()) do
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    for index, line in ipairs(lines) do
+      if line:find("Building document", 1, true) then
+        return lines[index + 1]
+      end
+    end
+  end
 end
 local function record_error(err)
   failed = true
@@ -93,7 +104,6 @@ later(150, function()
   tools.progress({
     title = "Building document",
     source = "texquill",
-    percentage = 20,
     message = "Compiling references",
   })
 end)
@@ -116,6 +126,11 @@ later(400, function()
     "Source groups were not painted"
   )
   snapshots.before = text
+  waiting_bar = assert(preview_bar())
+  assert(
+    waiting_bar:find("━", 1, true) and waiting_bar:find("─", 1, true),
+    "Default progress bars must actually be painted"
+  )
   assert(
     text:find("Enabled Inlay Hints", 1, true) and not text:find("**", 1, true),
     "Inline Markdown markers were painted"
@@ -145,6 +160,7 @@ for i, char in ipairs({ "t", "y", "p", "i", "n", "g" }) do
   later(450 + i * 50, function()
     assert(vim.api.nvim_get_mode().mode:sub(1, 1) == "i", "Editor left Insert mode")
     vim.api.nvim_feedkeys(char, "n", false)
+    waiting_changed = waiting_changed or preview_bar() ~= waiting_bar
     task:update({ percentage = 35 + i * 5 })
   end)
 end
@@ -157,6 +173,7 @@ later(900, function()
   for win, buf in pairs(floats()) do
     assert(initial[win] == buf, "Progress updates recreated a window or buffer")
   end
+  assert(waiting_changed, "Unknown-total bars must animate while editing")
   tools.notify("Updated notification", "info", { id = notice, title = "Build" })
   task:finish("Index ready")
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)

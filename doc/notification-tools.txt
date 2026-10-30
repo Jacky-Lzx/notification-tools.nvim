@@ -113,6 +113,15 @@ progress(opts) returns a handle with id and the following methods:
   :cancel(message?)        Mark cancelled; does not cancel the producer's work.
   :is_active()             Whether updates are still accepted.
 
+progress.style="bar" is the default: a width-adaptive bar below each task title.
+Known percentages fill the track; unknown totals show a bouncing segment without
+inventing a percentage. Success fills the bar; errors/cancellations retain known
+progress with their status color. Short/narrow screens omit bars before hiding
+tasks. Set progress.style="compact" for the original spinner/text presentation.
+The unfilled track uses NotificationToolsProgressTrack; the fill uses existing
+Progress/Done/ERROR/Cancelled groups. Waiting bars animate at progress.interval,
+including when progress.spinner contains just one frame.
+
 percentage is clamped to integer 0..100. Omitted fields retain their values.
 The same active ID returns the same handle. Ended IDs may be reused. Old handles
 are inert after completion, eviction, clear_tasks(), setup(), or teardown().
@@ -162,9 +171,10 @@ notification.fade_out=180            Fade during the final timeout milliseconds.
 notification.window      Inherits window, with horizontal padding=2, vertical=0.
 progress.window          Inherits window (rounded border), with min_width=24,
                         max_width=44, max_height=12 and horizontal padding=1,
-                        vertical=0. max_height includes headers and details.
+                        vertical=0. max_height includes headers, bars and details.
 *.window.padding         { horizontal = cells, vertical = lines }.
 progress.enabled=true   Show the task panel; API remains available when false.
+progress.style="bar"    Default progress bars; "compact" uses spinner/text rows.
 progress.max_items=6     Maximum visible task entries, excluding source labels.
 progress.done_ttl=1500   Result lifetime in milliseconds.
 progress.history="errors" Failure/timeout history; "all" or false also supported.
@@ -183,7 +193,8 @@ icons                   TRACE/DEBUG/INFO/WARN/ERROR icon strings.
 
 window remains a shared fallback. notification.window and progress.window can
 override it independently. A notice's max_height limits body/details lines.
-Task source labels, gaps and detail lines are omitted first on small screens.
+Task gaps/details, bar rows and source labels are omitted before hiding tasks
+on small screens.
 Widths are measured from content and only grow during a float's lifetime, except
 when the screen shrinks. Source groups and their tasks keep creation order.
 Notices append in creation order; updates do not reorder them. Recent notices
@@ -221,7 +232,7 @@ NotificationToolsSource, NotificationToolsCancelled,
 NotificationToolsMarkdownCode, NotificationToolsMarkdownLink,
 NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
-NotificationToolsDone. Defaults link to standard theme groups.
+NotificationToolsDone, NotificationToolsProgressTrack. Defaults link to standard theme groups.
 
 See README.md and examples/ for lazy.nvim configuration and consumer adapters.
 

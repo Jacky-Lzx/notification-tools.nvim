@@ -17,7 +17,7 @@ Markdown-aware notifications, grouped task progress, and a history worth opening
 ## Keep the work visible
 
 - **Readable notifications.** Rounded cards, severity accents, inline Markdown, repeat counts, and secondary details.
-- **Progress that stays out of your way.** Source groups, animated spinners, percentages or elapsed time, and optional LSP progress.
+- **Progress that stays out of your way.** Source groups, progress bars, animated waiting indicators, percentages or elapsed time, and optional LSP progress.
 - **A useful history.** Newest messages first, severity/source/title filters, native search and yanks, and cursor-line Markdown source reveal.
 - **Time to read.** Open a full notification and pause its remaining timeout until you close the reader.
 - **Control the noise.** Do not disturb, history-only routes, and a small synchronous filter API.
@@ -108,6 +108,18 @@ task:finish("PDF ready")
 `update()` accepts `title`, `source`, `message`, `percentage`, and `history`; omitted fields keep their values. Percentages are clamped to integer `0..100`. `finish(message?, status?)` accepts `success` (default), `error`, or `cancelled`. `cancel()` marks the display as cancelled; the caller cancels the actual job.
 
 The same active ID returns the same handle. Completed IDs can be reused; old handles become inert after completion, eviction, `clear_tasks()`, `setup()`, or `teardown()`. Mutation methods return the handle, and `is_active()` reports whether it still accepts updates. See [examples/task.lua](examples/task.lua).
+
+### Progress bars by default
+
+Each task displays a bar below its title. Known percentages fill the track from 0 to 100; tasks without a percentage show a bouncing segment and elapsed time. Successful completion fills the bar; failures and cancellations retain the known progress with their status color.
+
+Bars use the available window width. On short or narrow screens they fall back to the compact task row, keeping titles and percentages visible. To use the original spinner-and-text layout everywhere:
+
+```lua
+require("notification-tools").setup({ progress = { style = "compact" } })
+```
+
+`progress.style = "bar"` is the default. Fill colors follow `NotificationToolsProgress`, `Done`, `ERROR`, and `Cancelled`; the unfilled track uses `NotificationToolsProgressTrack`.
 
 ### Keep failures after the task disappears
 
@@ -221,6 +233,7 @@ require("notification-tools").setup({
   },
   progress = {
     enabled = true, -- API remains available when the panel is disabled.
+    style = "bar", -- "compact" restores spinner-and-text rows.
     max_items = 6,
     done_ttl = 1500,
     history = "errors", -- "all" or false also supported.
@@ -244,7 +257,7 @@ Notifications and the task panel follow the active tab. Switching tabs closes a 
 
 Parsed notification content is reused across timeout, title, and repeat-count updates. Unchanged layouts are cached by display constraints. Preview wrapping stops at the visible line budget while retaining full source text in history.
 
-Widths use display cells and only grow during a float's lifetime, except when the screen shrinks. Small screens drop optional task gaps, details, and source labels before hiding tasks. Hidden notifications still expire. Fades stay inside the configured lifetime, and completed tasks fade independently of active siblings. True-color terminals give the best blending.
+Widths use display cells and only grow during a float's lifetime, except when the screen shrinks. Small screens drop optional task gaps, details, bar rows, and source labels before hiding tasks. Hidden notifications still expire. Fades stay inside the configured lifetime, and completed tasks fade independently of active siblings. True-color terminals give the best blending.
 
 ### Theme it with highlight groups
 
@@ -257,7 +270,7 @@ vim.api.nvim_set_hl(0, "NotificationToolsBody", { fg = "#cdd6f4" })
 vim.api.nvim_set_hl(0, "NotificationToolsSource", { link = "Comment" })
 ```
 
-Use `NotificationToolsNotificationNormal` and `NotificationToolsProgressNormal` for separate surfaces. Other groups include `Title`, `Body`, `TaskTitle`, `Meta`, `Source`, `ERROR/WARN/INFO/DEBUG/TRACE`, `Progress`, `Done`, `Cancelled`, `MarkdownCode`, and `MarkdownLink`, each prefixed with `NotificationTools`.
+Use `NotificationToolsNotificationNormal` and `NotificationToolsProgressNormal` for separate surfaces. The empty bar track uses `NotificationToolsProgressTrack`. Other groups include `Title`, `Body`, `TaskTitle`, `Meta`, `Source`, `ERROR/WARN/INFO/DEBUG/TRACE`, `Progress`, `Done`, `Cancelled`, `MarkdownCode`, and `MarkdownLink`, each prefixed with `NotificationTools`.
 
 ## Integrate with your setup
 

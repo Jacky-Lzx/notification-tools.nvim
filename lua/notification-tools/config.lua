@@ -32,6 +32,7 @@ M.defaults = {
   },
   progress = {
     enabled = true,
+    style = "bar",
     max_items = 6,
     done_ttl = 1500,
     history = "errors",
@@ -163,6 +164,10 @@ function M.resolve(opts)
     "notification.filter must be a function"
   )
   config.notification.dnd_level = M.level(config.notification.dnd_level)
+  assert(
+    vim.tbl_contains({ "bar", "compact" }, config.progress.style),
+    "progress.style must be bar or compact"
+  )
   config.progress.history = M.task_history(config.progress.history)
   config.level = M.level(config.level)
   return config

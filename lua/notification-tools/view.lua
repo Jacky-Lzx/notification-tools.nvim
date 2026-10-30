@@ -38,6 +38,7 @@ function M.highlights()
     DEBUG = "Comment",
     TRACE = "Comment",
     Progress = "DiagnosticInfo",
+    ProgressTrack = "Comment",
     Done = "DiagnosticOk",
   }) do
     api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, link = link })
@@ -258,7 +259,7 @@ function M.render(state)
   end, model.sorted(state.notices))
   local tasks = model.sorted(state.tasks, true)
   local used, now = {}, model.now()
-  local visible = { notices = {}, tasks = {} }
+  local visible = { notices = {}, tasks = {}, bars = {} }
   if
     config.progress.enabled
     and #tasks > 0
@@ -280,6 +281,7 @@ function M.render(state)
       local row = screen_bottom - p.bottom - #plan.lines - layout.border(p)
       draw("progress", plan, row, p, nil, config.progress.fade_out, now)
       used.progress = true
+      visible.bars = plan.bar_tasks
       for i = 1, plan.displayed do
         visible.tasks[tasks[i].id] = true
       end

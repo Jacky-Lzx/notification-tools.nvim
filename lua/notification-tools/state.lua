@@ -441,7 +441,10 @@ function M.next_delay(state, visible)
         wake(task.updated + p.stale_timeout)
       end
       if shown then
-        if #p.spinner > 1 then
+        if
+          #p.spinner > 1
+          or (p.style == "bar" and task.percentage == nil and visible.bars and visible.bars[id])
+        then
           wake((math.floor(now / p.interval) + 1) * p.interval)
         end
         if p.show_elapsed and task.percentage == nil then

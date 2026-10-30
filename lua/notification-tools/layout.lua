@@ -269,6 +269,34 @@ local function elapsed(task, now)
   return ("%.1fs"):format(seconds)
 end
 
+-- Build a determinate fill or a bouncing segment without inventing a percentage.
+local function bar(task, width, now, interval)
+  local filled, empty = "━", "─"
+  local unit = math.max(cells(filled), cells(empty))
+  local slots = math.floor(width / unit)
+  if slots < 2 then
+    return nil
+  end
+  filled = filled .. string.rep(" ", unit - cells(filled))
+  empty = empty .. string.rep(" ", unit - cells(empty))
+  local first, count = 0, 0
+  if task.done and task.status == "success" then
+    count = slots
+  elseif task.percentage ~= nil then
+    count = math.floor(slots * task.percentage / 100)
+  elseif not task.done then
+    count = math.max(1, math.floor(slots / 4))
+    local travel = slots - count
+    local phase = math.floor(now / interval) % (2 * travel)
+    first = phase <= travel and phase or 2 * travel - phase
+  end
+  return {
+    { string.rep(empty, first), "ProgressTrack" },
+    { string.rep(filled, count), status(task) },
+    { string.rep(empty, slots - first - count), "ProgressTrack" },
+  }
+end
+
 local function progress(tasks, config, maximum, height, minimum, now)
   if maximum < 4 or height < 1 or #tasks == 0 then
     return nil
@@ -319,7 +347,7 @@ local function progress(tasks, config, maximum, height, minimum, now)
   width = width_for(c, maximum, minimum, natural + c.padding.horizontal * 2)
   px, py = padding(c, width, height, 1)
   local inner = width - px * 2
-  local function rows(details, gaps, headers)
+  local function rows(details, gaps, headers, bars)
     local result = {}
     for i, group in ipairs(groups) do
       if gaps and i > 1 then
@@ -350,6 +378,17 @@ local function progress(tasks, config, maximum, height, minimum, now)
             { meta, "Meta" },
           },
         }
+        if bars then
+          local indent = math.min(icon_width + 1, inner - 1)
+          local chunks = bar(task, inner - indent, now, p.interval)
+          if chunks then
+            result[#result + 1] = {
+              item = task,
+              bar = true,
+              chunks = vim.list_extend({ { string.rep(" ", indent) } }, chunks),
+            }
+          end
+        end
         if details and task.message ~= "" then
           local indent = math.min(icon_width + 1, inner - 1)
           result[#result + 1] = {
@@ -368,22 +407,30 @@ local function progress(tasks, config, maximum, height, minimum, now)
     end
     return result
   end
-  local content = rows(true, true, true)
+  local bars = p.style == "bar"
+  local content = rows(true, true, true, bars)
   if #content > available then
-    content = rows(true, false, true)
+    content = rows(true, false, true, bars)
   end
   if #content > available then
-    content = rows(false, false, true)
+    content = rows(false, false, true, bars)
   end
   if #content > available then
-    content = rows(false, false, false)
+    content = rows(false, false, true, false)
+  end
+  if #content > available then
+    content = rows(false, false, false, false)
   end
   local result = panel(width, px)
   for _ = 1, py do
     blank(result)
   end
+  result.bar_tasks = {}
   for _, row in ipairs(content) do
     append(result, row.chunks, row.item)
+    if row.bar then
+      result.bar_tasks[row.item.id] = true
+    end
   end
   for _ = 1, py do
     blank(result)
@@ -407,6 +454,9 @@ function M.progress(tasks, config, maximum, height, minimum, now)
       task.status or false,
       task.percentage or false,
       not task.done and p.spinner[math.floor(now / p.interval) % #p.spinner + 1] or "",
+      not task.done and p.style == "bar" and task.percentage == nil and math.floor(
+        now / p.interval
+      ) or false,
       task.percentage == nil and p.show_elapsed and elapsed(task, now) or "",
     }
   end
