@@ -21,6 +21,7 @@ M.defaults = {
     padding = { horizontal = 1, vertical = 0 },
   },
   notification = {
+    markdown = true,
     merge_duplicates = true,
     timestamp = true,
     fade_out = 180,
@@ -64,6 +65,7 @@ function M.resolve(opts)
     { config.progress, "enabled" },
     { config.lsp, "enabled" },
     { config.notification, "merge_duplicates" },
+    { config.notification, "markdown" },
     { config.notification, "timestamp" },
     { config.progress, "group_by_source" },
     { config.progress, "show_elapsed" },

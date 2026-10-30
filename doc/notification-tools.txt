@@ -17,9 +17,20 @@ API                                            *notification-tools-api*
 <
 notify(message, level?, opts?) returns an ID, or nil when filtered. Levels may
 be vim.log.levels values or case-insensitive names. opts: id, replace, title,
-icon, details, timeout. details is optional secondary text. timeout=0 pins a
+icon, details, markdown, timeout. details is optional secondary text. timeout=0 pins a
 notification. IDs are strings or finite numbers.
 Replacements update the corresponding history entry. Timeouts start at creation.
+
+Body and details support inline Markdown by default: **bold** / __bold__,
+*italic* / _italic_, backtick code spans, ~~strike~~ and [label](url). Links show
+their label; the complete URL stays in history. Escapes and literal code content
+are preserved. Supported spans stay styled across automatic window wrapping.
+Markup spans are limited to one logical line. Block layouts/HTML are not rendered;
+fenced code blocks stay literal. This is not a full Markdown document renderer.
+Titles/tasks remain plain text, and history keeps the original Markdown source.
+Set notification.markdown=false globally, or pass opts.markdown=false for a raw
+message. Per-notice mode is inherited on explicit updates. Different modes never
+auto-merge, even with identical source text.
 
 Without an explicit id/replace, identical active notices merge: title, body,
 details, severity, icon and timeout must match. The same ID is returned, count
@@ -77,6 +88,7 @@ window.top/right/bottom=1 Screen margins in cells.
 window.zindex=150        Float stacking priority.
 window.gap=1             Space between notices / between the two areas.
 notification.merge_duplicates=true  Merge identical active notices.
+notification.markdown=true          Render inline Markdown in body/details.
 notification.timestamp=true         Time in the header; replaced by repeat count.
 notification.fade_out=180            Fade during the final timeout milliseconds.
 notification.window      Inherits window, with horizontal padding=2, vertical=0.
@@ -129,6 +141,7 @@ NotificationToolsNormal, NotificationToolsNotificationNormal,
 NotificationToolsProgressNormal, NotificationToolsBorder, NotificationToolsTitle,
 NotificationToolsBody, NotificationToolsTaskTitle, NotificationToolsMeta,
 NotificationToolsSource, NotificationToolsCancelled,
+NotificationToolsMarkdownCode, NotificationToolsMarkdownLink,
 NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
 NotificationToolsDone. Defaults link to standard theme groups.

@@ -2,6 +2,7 @@ local M = {}
 local layout = require("notification-tools.layout")
 local model = require("notification-tools.state")
 local fade_cache = {}
+local style_cache = {}
 local api = vim.api
 local ns = api.nvim_create_namespace("notification-tools")
 local windows = {}
@@ -10,10 +11,13 @@ local names = { [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF" }
 
 function M.highlights()
   fade_cache = {}
+  style_cache = {}
   for name, link in pairs({
     Normal = "NormalFloat",
     Border = "FloatBorder",
     Title = "Title",
+    MarkdownCode = "String",
+    MarkdownLink = "Underlined",
     Meta = "Comment",
     Source = "Comment",
     Cancelled = "Comment",
@@ -34,6 +38,29 @@ function M.highlights()
   for _, name in ipairs({ "Body", "TaskTitle" }) do
     api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, fg = float.fg or normal.fg })
   end
+end
+
+local function styled(key, style)
+  if not style then
+    return key
+  end
+  local name = key .. "Markdown" .. style
+  local definition = api.nvim_get_hl(0, { name = "NotificationTools" .. key, link = false })
+  definition.default = nil
+  if style:find("Bold", 1, true) then
+    definition.bold = true
+  end
+  if style:find("Italic", 1, true) then
+    definition.italic = true
+  end
+  if style:find("Strike", 1, true) then
+    definition.strikethrough = true
+  end
+  if not vim.deep_equal(style_cache[name], definition) then
+    api.nvim_set_hl(0, "NotificationTools" .. name, definition)
+    style_cache[name] = definition
+  end
+  return name
 end
 
 local clean = layout.clean
@@ -149,7 +176,11 @@ local function draw(key, plan, row, config, opacity, fade_out, now)
       row = mark.row,
       col = mark.col,
       finish = mark.finish,
-      hl = faded(mark.hl, opacity or model.opacity(mark.item, fade_out, now), normal),
+      hl = faded(
+        styled(mark.hl, mark.style),
+        opacity or model.opacity(mark.item, fade_out, now),
+        normal
+      ),
     }
   end
   if content_changed or not vim.deep_equal(entry.marks, marks) then

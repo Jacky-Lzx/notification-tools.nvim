@@ -71,16 +71,16 @@ end
 later(150, function()
   assert(#vim.api.nvim_list_uis() > 0, "A real TUI is required")
   notice = tools.notify(
-    "中文通知：文档已生成。",
+    "Enabled **Inlay Hints**",
     "info",
-    { title = "Build", details = "main.pdf · 12 pages" }
+    { title = "Inlay Hints", details = "中文：**已启用** · `main.pdf`" }
   )
   assert(
     notice
       == tools.notify(
-        "中文通知：文档已生成。",
+        "Enabled **Inlay Hints**",
         "info",
-        { title = "Build", details = "main.pdf · 12 pages" }
+        { title = "Inlay Hints", details = "中文：**已启用** · `main.pdf`" }
       )
   )
   tools.notify("One warning from the language server", "warn", { title = "LSP" })
@@ -116,6 +116,24 @@ later(400, function()
     "Source groups were not painted"
   )
   snapshots.before = text
+  assert(
+    text:find("Enabled Inlay Hints", 1, true) and not text:find("**", 1, true),
+    "Inline Markdown markers were painted"
+  )
+  local strong = false
+  local markdown_ns = vim.api.nvim_create_namespace("notification-tools")
+  for _, buf in pairs(initial) do
+    for _, mark in
+      ipairs(vim.api.nvim_buf_get_extmarks(buf, markdown_ns, 0, -1, { details = true }))
+    do
+      if mark[4].hl_group == "NotificationToolsBodyMarkdownBold" then
+        local line = vim.api.nvim_buf_get_lines(buf, mark[2], mark[2] + 1, false)[1]
+        strong = line:sub(mark[3] + 1, mark[4].end_col) == "Inlay Hints"
+          and vim.api.nvim_get_hl(0, { name = mark[4].hl_group, link = false }).bold
+      end
+    end
+  end
+  assert(strong, "The screenshot's Inlay Hints text must actually be bold")
   for win in pairs(initial) do
     local position = vim.api.nvim_win_get_position(win)
     assert(position[2] > vim.o.columns / 3, "Float must be on the right")

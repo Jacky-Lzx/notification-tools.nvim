@@ -114,6 +114,14 @@ function M.notify(message, level, opts)
   local title = text(opts.title or (old and old.title) or "Notification")
   local details = opts.details ~= nil and text(opts.details) or (old and old.details) or ""
   local icon = opts.icon or (old and old.icon)
+  local markdown = opts.markdown
+  if markdown == nil and old then
+    markdown = old.markdown
+  end
+  if markdown == nil then
+    markdown = state.config.notification.markdown
+  end
+  assert(type(markdown) == "boolean", "markdown must be a boolean")
   local now = model.now()
   if not explicit and state.config.notification.merge_duplicates then
     for _, item in ipairs(model.sorted(state.notices)) do
@@ -125,6 +133,7 @@ function M.notify(message, level, opts)
         and item.level == level
         and item.icon == icon
         and item.timeout == timeout
+        and item.markdown == markdown
       then
         old, id = item, item.id
         break
@@ -138,6 +147,7 @@ function M.notify(message, level, opts)
     and old.level == level
     and old.details == details
     and old.icon == icon
+    and old.markdown == markdown
   state.serial = state.serial + 1
   local notice = {
     id = id,
@@ -146,6 +156,7 @@ function M.notify(message, level, opts)
     title = title,
     details = details,
     icon = icon,
+    markdown = markdown,
     count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
     time = os.time(),
     order = old and old.order or state.serial,

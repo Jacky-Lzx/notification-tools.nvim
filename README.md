@@ -7,6 +7,7 @@
 - 通用任务 API：由调用方管理自己的事件和任务句柄，插件不监听其他业务插件的事件。
 - 可选 LSP work-done progress 接入，区分客户端和 token 类型，不替换 LSP handler。
 - 通知历史、中文与多行文本、自适应宽度、小窗口布局、主题切换和安全卸载。
+- 通知正文和附加信息支持常用行内 Markdown，按显示文字计算换行和宽度。
 
 ## 安装
 
@@ -51,7 +52,7 @@ tools.dismiss() -- 关闭所有普通通知，保留任务和历史
 
 `notify(message, level?, opts?)` 返回字符串/数字 ID；被级别过滤时返回 `nil`。
 级别接受 `vim.log.levels` 数值或不区分大小写的 `trace/debug/info/warn/error/off`。
-`opts` 支持 `id`、`replace`（ID 或 `{ id = ... }`）、`title`、`icon`、`details` 和 `timeout`。
+`opts` 支持 `id`、`replace`（ID 或 `{ id = ... }`）、`title`、`icon`、`details`、`markdown` 和 `timeout`。
 相同 ID 更新通知，并在历史中保留最新版本；表类型消息使用 `vim.inspect`。
 `timeout` 从调用时开始计时，超出屏幕显示数量的通知仍会记录到历史中。
 
@@ -61,6 +62,21 @@ tools.dismiss() -- 关闭所有普通通知，保留任务和历史
 
 `tools.history()` 返回按时间从旧到新排列的独立快照；`tools.clear_history()` 清空历史。
 历史只保存在当前会话内，任务结果不写入通知历史。
+
+### 行内 Markdown
+
+```lua
+vim.notify("Enabled **Inlay Hints**", vim.log.levels.INFO, { title = "Inlay Hints" })
+-- 单条关闭：日志或代码需要原样显示时使用。
+vim.notify("literal **stars**", nil, { markdown = false })
+```
+
+默认支持 `**粗体**` / `__粗体__`、`*斜体*` / `_斜体_`、行内代码、`~~删除线~~` 和 `[链接文字](url)`。
+链接显示文字并加高亮，完整地址可在历史中查看。反斜杠可转义标点，行内代码中的星号等字符会原样显示。
+格式范围限于单个逻辑行；窗口自动折行时样式会延续。标题、列表、表格、HTML 等块级布局不作特殊渲染，围栏代码块保留原文。这是轻量的行内显示支持，并非完整 Markdown 文档渲染器。
+
+原始消息和 `details` 始终保留在 `history()` / `:Notifications` 中；去重也使用原文。通知标题和任务面板继续按纯文本显示。
+设置 `notification.markdown = false` 可全局关闭；单条 `opts.markdown` 优先，并在同 ID 更新时继承。不同 Markdown 模式的通知不会自动合并。
 
 ## 其他插件接入任务 API
 
@@ -141,6 +157,7 @@ require("notification-tools").setup({
     gap = 1,
   },
   notification = {
+    markdown = true,
     merge_duplicates = true,
     timestamp = true, -- 标题右侧显示时间；重复时显示 ×N
     fade_out = 180, -- 在现有 timeout 的最后 180ms 淡出；0 关闭
@@ -196,6 +213,7 @@ LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results �
 `NotificationToolsBorder`、`NotificationToolsTitle`、`NotificationToolsBody`、`NotificationToolsTaskTitle`、
 `NotificationToolsMeta`、`NotificationToolsSource`、`NotificationToolsERROR/WARN/INFO/DEBUG/TRACE`、
 `NotificationToolsProgress`、`NotificationToolsDone`、`NotificationToolsCancelled`。
+行内代码和链接使用 `NotificationToolsMarkdownCode`、`NotificationToolsMarkdownLink`；粗体、斜体和删除线组合继承相应正文/附加信息的主题颜色。
 默认链接到主题的 `NormalFloat/FloatBorder/Diagnostic*` 等高亮；使用 `nvim_set_hl` 可覆盖，切换主题后重新设置默认链接。
 
 ## 验证

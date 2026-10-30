@@ -1,5 +1,7 @@
 local M = {}
 local model = require("notification-tools.state")
+local markdown = require("notification-tools.markdown")
+local text_cache = setmetatable({}, { __mode = "k" })
 
 function M.clean(text)
   return tostring(text or ""):gsub("\t", "  "):gsub("[%z\1-\8\11-\31\127]", "")
@@ -67,6 +69,7 @@ local function append(panel, chunks, item)
         col = col,
         finish = #line,
         hl = chunk[2] or "Body",
+        style = chunk[3],
         item = item,
       }
     end
@@ -101,19 +104,44 @@ local function header(left, left_group, right, width)
   }
 end
 
+local function formatted(notice, config)
+  local enabled = notice.markdown
+  if enabled == nil then
+    enabled = config.notification.markdown
+  end
+  local cached = text_cache[notice]
+  if
+    not cached
+    or cached.message ~= notice.message
+    or cached.details ~= notice.details
+    or cached.enabled ~= enabled
+  then
+    cached = {
+      enabled = enabled,
+      message = notice.message,
+      details = notice.details,
+      body = markdown.parse(M.clean(notice.message), "Body", enabled),
+      extra = markdown.parse(M.clean(notice.details), "Meta", enabled),
+    }
+    text_cache[notice] = cached
+  end
+  return cached
+end
+
 function M.notification(notice, config, maximum, height, minimum)
   if maximum < 4 or height < 2 then
     return nil
   end
   local level = ({ [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR" })[notice.level]
   local c = config.notification.window
+  local content = formatted(notice, config)
   local icon = inline(notice.icon or config.icons[level] or "●")
   local title = inline(notice.title)
   local indent_width = cells(icon) + 1
   local meta = (notice.count or 1) > 1 and ("×" .. notice.count)
     or (config.notification.timestamp and os.date("%H:%M", notice.time) or "")
   local natural = cells(icon .. " " .. title) + (meta ~= "" and cells(meta) + 2 or 0)
-  for _, text in ipairs({ notice.message, notice.details or "" }) do
+  for _, text in ipairs({ markdown.text(content.body), markdown.text(content.extra) }) do
     for _, line in ipairs(vim.split(M.clean(text), "\n", { plain = true })) do
       natural = math.max(natural, cells(line) + indent_width)
     end
@@ -139,17 +167,23 @@ function M.notification(notice, config, maximum, height, minimum)
   local body_budget = math.min(c.max_height, height - py * 2 - 1)
   local details = notice.details or ""
   local detail_budget = details ~= "" and body_budget >= 2 and 1 or 0
-  local body = M.wrap(notice.message, body_width, body_budget + 1)
+  local body = markdown.wrap(content.body, body_width, body_budget + 1)
   local count = math.min(#body, body_budget - detail_budget)
   for i = 1, count do
     local line = body[i]
     if i == count and #body > count then
-      line = M.clip(line .. " …", body_width)
+      line = markdown.clip(vim.list_extend(vim.deepcopy(line), { { " …", "Body" } }), body_width)
     end
-    append(result, { { string.rep(" ", indent) }, { line, "Body" } })
+    append(result, vim.list_extend({ { string.rep(" ", indent) } }, line))
   end
   if detail_budget > 0 then
-    append(result, { { string.rep(" ", indent) }, { M.clip(details, body_width), "Meta" } })
+    append(
+      result,
+      vim.list_extend(
+        { { string.rep(" ", indent) } },
+        markdown.clip(content.extra, body_width, "Meta")
+      )
+    )
   end
   for _ = 1, py do
     blank(result)
