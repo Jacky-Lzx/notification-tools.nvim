@@ -5,6 +5,7 @@ return {
     main = "notification-tools",
     lazy = false,
     priority = 1100,
+    ---@type notification_tools.Config
     opts = {
       window = { border = "rounded", winblend = 0 },
       notification = { window = { padding = { horizontal = 2, vertical = 0 } } },

@@ -1,0 +1,9 @@
+-- These calls are static-analysis fixtures, never executed by Neovim.
+local tools = require("notification-tools")
+tools.setup({ progress = { style = "invalid" } }) -- expect-type-error
+tools.progress({ percentage = "half" }) -- expect-type-error
+tools.progress():finish(nil, "broken") -- expect-type-error
+tools.set_dnd("yes") -- expect-type-error
+tools.show_history({ source = 42 }) -- expect-type-error
+tools.notify("hello", "info", { timeout = "fast" }) -- expect-type-error
+tools.progress().id = {} -- expect-type-error

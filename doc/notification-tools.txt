@@ -152,6 +152,21 @@ Results remain after done_ttl; they share history_size with ordinary notices.
 history_size=0 disables all recording. Results never create extra popups and
 use the task recording policy, bypassing ordinary filters/minimum level/DND.
 
+LUALS TYPES                                    *notification-tools-types*
+
+Public LuaLS annotations cover setup options, notifications, filters, task handles
+and snapshots. Add this plugin's lua directory to your LuaLS workspace library
+if your Neovim Lua tooling does not discover it automatically. Example:
+>
+    ---@type notification_tools.Config
+    local opts = { progress = { style = "bar", history = "errors" } }
+    require("notification-tools").setup(opts)
+<
+Available types include Config, NotifyOptions, FilterNotice, TaskOptions,
+TaskUpdate, TaskHandle, TaskSnapshot, HistoryFilters and Record, prefixed with
+notification_tools. Metadata is in lua/notification-tools/types.lua and does not
+need a runtime require. scripts/check_types.py checks valid/invalid consumers.
+
 OPTIONS                                        *notification-tools-options*
 
 notify=true              Own vim.notify; false only enables the explicit API.

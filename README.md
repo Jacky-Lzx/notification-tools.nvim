@@ -291,6 +291,21 @@ For Noice message routes, [examples/noice.lua](examples/noice.lua) provides an o
 
 The adapter is loaded by your configuration; the plugin itself has no Noice/NUI dependency. Other producers can use the same public notification/task API without adding producer-specific integrations to the plugin.
 
+## LuaLS types
+
+The public API includes LuaLS annotations for configuration, notification options, filters, history records, and task handles. Add this plugin's `lua` directory to your LuaLS library when it is not already discovered by your Neovim Lua tooling; no runtime `require` of the metadata file is needed.
+
+```lua
+---@type notification_tools.Config
+local opts = {
+  progress = { style = "bar", history = "errors" },
+  notification = { filter = function(notice) return notice.level < 3 and "history" or "show" end },
+}
+require("notification-tools").setup(opts)
+```
+
+See [types.lua](lua/notification-tools/types.lua) for `NotifyOptions`, `TaskOptions`, `TaskUpdate`, `TaskHandle`, `HistoryFilters`, and the notification/task-result record types.
+
 ## Commands and lifecycle
 
 | Command | Action |
@@ -320,6 +335,14 @@ NOTIFICATION_TOOLS_LAZY_ROOT=/path/to/lazy.nvim \
 NOTIFICATION_TOOLS_NOICE_ROOT=/path/to/noice.nvim \
 NOTIFICATION_TOOLS_NUI_ROOT=/path/to/nui.nvim sh tests/run.sh
 ```
+
+Optional LuaLS consumer-contract checks (requires `lua-language-server` and Python 3):
+
+```sh
+python3 scripts/check_types.py
+```
+
+Valid consumers must be diagnostic-free; intentional mistakes must produce type errors. These fixtures are separate from runtime tests and add no runtime dependencies.
 
 Real terminal checks: `nvim -n -u tests/tui.lua -i NONE`, `tests/history_tui.lua`, or `tests/reading_tui.lua`. Set `NOTIFICATION_TOOLS_THEME_ROOT=/path/to/catppuccin` for Catppuccin Mocha and `NOTIFICATION_TOOLS_TUI_EXIT=1` to exit after verification. Results are written to `NOTIFICATION_TOOLS_TUI_RESULT` or each script's default temporary path.
 

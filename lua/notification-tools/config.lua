@@ -49,6 +49,8 @@ M.defaults = {
   icons = { ERROR = "✖", WARN = "▲", INFO = "●", DEBUG = "◆", TRACE = "·" },
 }
 
+---@param value notification_tools.Level
+---@return integer
 function M.level(value)
   if type(value) == "string" then
     value = vim.log.levels[value:upper() == "WARNING" and "WARN" or value:upper()]
@@ -60,6 +62,8 @@ function M.level(value)
   return value
 end
 
+---@param value notification_tools.HistoryPolicy
+---@return notification_tools.HistoryPolicy
 function M.task_history(value)
   assert(
     value == false or value == "errors" or value == "all",
@@ -68,6 +72,8 @@ function M.task_history(value)
   return value
 end
 
+---@param opts? notification_tools.Config
+---@return table resolved Validated config with defaults and window inheritance applied.
 function M.resolve(opts)
   local config = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
   for _, section in ipairs({ "notification", "progress" }) do

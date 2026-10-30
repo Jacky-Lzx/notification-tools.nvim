@@ -1,3 +1,4 @@
+---@class notification_tools.API
 local M = {}
 local model = require("notification-tools.state")
 local config = require("notification-tools.config")
@@ -54,7 +55,10 @@ local function ensure()
 end
 
 ---Display a top-right notification. timeout=0 pins it until dismissed.
----@return string|number|nil id
+---@param message any Strings are displayed directly; tables use vim.inspect.
+---@param level? notification_tools.Level
+---@param opts? notification_tools.NotifyOptions
+---@return notification_tools.ID? id Nil when filtered or discarded.
 function M.notify(message, level, opts)
   ensure()
   local owner, current = state, generation
@@ -76,6 +80,8 @@ function M.notify(message, level, opts)
 end
 
 ---DND only affects ordinary popups. Suppressed notices are not replayed.
+---@param enabled boolean
+---@return boolean enabled
 function M.set_dnd(enabled)
   ensure()
   local result = model.set_dnd(state, enabled)
@@ -83,16 +89,19 @@ function M.set_dnd(enabled)
   return result
 end
 
+---@return boolean enabled
 function M.is_dnd()
   ensure()
   return state.dnd
 end
 
+---@return boolean enabled
 function M.toggle_dnd()
   return M.set_dnd(not M.is_dnd())
 end
 
 ---Dismiss one notification, or all notifications. History and tasks are retained.
+---@param id? notification_tools.ID Omit to dismiss all ordinary notifications.
 function M.dismiss(id)
   ensure()
   model.dismiss(state, id)
@@ -100,11 +109,14 @@ function M.dismiss(id)
 end
 
 ---Return an independent, oldest-first snapshot.
+---@param opts? notification_tools.HistoryFilters
+---@return notification_tools.Record[] records Independent, oldest-first snapshots.
 function M.history(opts)
   ensure()
   return model.history(state, opts)
 end
 
+---Clear retained notification and task-result history.
 function M.clear_history()
   ensure()
   model.clear_history(state)
@@ -114,6 +126,7 @@ local function reading_zindex()
   return math.max(state.config.notification.window.zindex, state.config.progress.window.zindex) + 1
 end
 
+---@param opts? notification_tools.HistoryFilters
 function M.show_history(opts)
   ensure()
   opts = require("notification-tools.records").options(opts)
@@ -128,6 +141,8 @@ function M.show_history(opts)
 end
 
 ---Read a complete notice; an active notice's remaining timeout pauses until closed.
+---@param id? notification_tools.ID Omit to read the latest ordinary notification.
+---@return notification_tools.ID? id Nil when unavailable; display is scheduled.
 function M.show_notification(id)
   ensure()
   if id ~= nil then
@@ -171,6 +186,8 @@ function M.show_notification(id)
 end
 
 ---Create or retrieve a bottom-right task. Handles are inert after teardown/replacement.
+---@param opts? notification_tools.TaskOptions
+---@return notification_tools.TaskHandle handle
 function M.progress(opts)
   ensure()
   opts = opts or {}
@@ -186,9 +203,12 @@ function M.progress(opts)
   local function alive()
     return generation == current and state ~= nil and state.tasks[id] == task and not task.done
   end
+  ---@return boolean
   function handle:is_active()
     return alive()
   end
+  ---@param update? notification_tools.TaskUpdate
+  ---@return notification_tools.TaskHandle
   function handle:update(update)
     if alive() then
       model.update_task(task, update or {})
@@ -196,6 +216,9 @@ function M.progress(opts)
     end
     return self
   end
+  ---@param message? string
+  ---@param status? notification_tools.TaskStatus
+  ---@return notification_tools.TaskHandle
   function handle:finish(message, status)
     if alive() then
       model.finish_task(state, task, message, status)
@@ -203,6 +226,8 @@ function M.progress(opts)
     end
     return self
   end
+  ---@param message? string
+  ---@return notification_tools.TaskHandle
   function handle:cancel(message)
     return self:finish(message, "cancelled")
   end
@@ -211,11 +236,13 @@ function M.progress(opts)
   return handle
 end
 
+---@return notification_tools.TaskSnapshot[] tasks Independent, newest-first snapshots.
 function M.tasks()
   ensure()
   return model.tasks(state)
 end
 
+---Clear task state and invalidate all active producer handles.
 function M.clear_tasks()
   ensure()
   model.clear_tasks(state)
@@ -223,6 +250,7 @@ function M.clear_tasks()
   request_render()
 end
 
+---Release owned resources and restore vim.notify only while still owned.
 function M.teardown()
   generation = generation + 1
   if scheduler then
@@ -252,6 +280,8 @@ function M.teardown()
   view_ready = false
 end
 
+---@param opts? notification_tools.Config
+---@return notification_tools.API
 function M.setup(opts)
   -- Validate before replacing a working instance.
   local resolved = config.resolve(opts)
@@ -300,6 +330,7 @@ function M.setup(opts)
   return M
 end
 
+---Preview notification cards and task progress using the public API.
 function M.demo()
   ensure()
   for _ = 1, 2 do
