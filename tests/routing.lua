@@ -98,6 +98,25 @@ settle(1)
 assert(vim.v.errmsg:find("broken filter", 1, true))
 tools.teardown()
 h.eq(nil, vim.api.nvim_get_commands({}).NotificationsDnd)
+-- Native producers may first show a prefix, then append text that gets dropped.
+tools.setup({
+  notify = false,
+  timeout = 0,
+  notification = {
+    filter = function(notice)
+      return notice.message:find("written", 1, true) and "drop" or "show"
+    end,
+  },
+})
+local prefix = tools.notify('"main.tex" ', "info", { id = "file-write" })
+settle(1)
+tools.notify("keep this record", "error")
+settle(2)
+h.eq(nil, tools.notify('"main.tex" 370L, 23103B written', "info", { id = prefix }))
+settle(1)
+h.eq(1, #tools.history())
+h.eq("keep this record", tools.history()[1].message)
+tools.teardown()
 print(
   "routing: DND, no replay, source-aware merging, history-only/drop routes and callback isolation passed"
 )

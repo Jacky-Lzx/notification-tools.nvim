@@ -62,7 +62,7 @@ end
 local function notify(message, level, opts, route)
   ensure()
   local owner, current = state, generation
-  local id, filter_error = model.notify(owner, message, level, opts, route)
+  local id, filter_error, discarded = model.notify(owner, message, level, opts, route)
   if state ~= owner then
     return nil
   end
@@ -80,7 +80,7 @@ local function notify(message, level, opts, route)
       end
     end)
   end
-  if id then
+  if id or discarded then
     changed()
   end
   return id

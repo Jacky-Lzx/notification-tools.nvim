@@ -87,7 +87,7 @@ local function show(s, args)
     s.ids[native_id] = item
   end
   local route = s.config.messages.routes[kind] or "show"
-  if route == "drop" or content == "" then
+  if content == "" then
     return
   end
   s.notify(content, level(kind), {

@@ -196,6 +196,8 @@ require("notification-tools").setup({
 
 The synchronous filter receives independent normalized fields: message, level, title, source, details, icon, Markdown mode, timeout, and any explicit ID. The global minimum `level` runs first. Invalid results or callback errors report an error and fall back to `"show"`, without recursive `vim.notify` calls.
 
+Dropping an explicit update also removes that ID's previous popup and notification-history entry. This prevents a partially emitted message from lingering after its completed content is filtered.
+
 `set_dnd(boolean)`, `toggle_dnd()`, and `is_dnd()` return the resulting/current state.
 
 ## Configuration

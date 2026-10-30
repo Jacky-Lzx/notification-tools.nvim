@@ -98,6 +98,8 @@ normalized fields (message, level, title, source, details, timeout, etc.). Retur
 is checked first. Errors/invalid results are reported without recursive notify,
 and fall back to "show". source defaults to title and is inherited on replacement.
 Different sources do not auto-merge.
+Dropping an explicit update also removes the previous popup/history record for
+that notification ID, including a partially emitted native message.
 
 NATIVE MESSAGES                                *notification-tools-messages*
 

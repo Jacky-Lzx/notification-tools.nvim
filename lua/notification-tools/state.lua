@@ -44,6 +44,21 @@ function M.trim(state, items)
   end
 end
 
+local function discard(state, id)
+  if id == nil then
+    return
+  end
+  local changed = state.notices[id] ~= nil
+  state.notices[id] = nil
+  for i = #state.history, 1, -1 do
+    if state.history[i].id == id and state.history[i].kind == "notification" then
+      table.remove(state.history, i)
+      changed = true
+    end
+  end
+  return nil, nil, changed
+end
+
 function M.notify(state, message, level, opts, route)
   opts = opts or {}
   local explicit = opts.id ~= nil or opts.replace ~= nil
@@ -53,6 +68,9 @@ function M.notify(state, message, level, opts, route)
   end
   if id ~= nil then
     M.valid_id(id)
+  end
+  if route == "drop" then
+    return discard(state, id)
   end
   local old = id ~= nil and state.notices[id] or nil
   level = config.level(level or (old and old.level) or vim.log.levels.INFO)
@@ -104,7 +122,8 @@ function M.notify(state, message, level, opts, route)
     end
   end
   if route == "drop" then
-    return nil
+    -- A replacement can become filtered after its prefix was already shown.
+    return discard(state, id)
   end
   local display = route == "show"
     and (not state.dnd or level >= state.config.notification.dnd_level)
