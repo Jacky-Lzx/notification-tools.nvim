@@ -245,6 +245,7 @@ Widths use display cells and only grow during a float's lifetime, except when th
 Colors follow `NormalFloat`, `FloatBorder`, `Diagnostic*`, and your theme. Override individual groups with `nvim_set_hl`, including from a `ColorScheme` autocmd:
 
 ```lua
+vim.api.nvim_set_hl(0, "NotificationToolsNormal", { link = "Normal" }) -- Match the editor background.
 vim.api.nvim_set_hl(0, "NotificationToolsBorder", { fg = "#89b4fa" })
 vim.api.nvim_set_hl(0, "NotificationToolsBody", { fg = "#cdd6f4" })
 vim.api.nvim_set_hl(0, "NotificationToolsSource", { link = "Comment" })

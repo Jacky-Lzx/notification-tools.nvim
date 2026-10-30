@@ -64,9 +64,12 @@ os.time = function(date)
 end
 local tools = require("notification-tools")
 tools.setup({ timeout = 0, progress = { stale_timeout = 0 } })
--- Public highlight overrides: this palette is part of the screenshot fixture.
+-- Public highlight overrides: use the editor surface for cards and history.
+local background = vim.api.nvim_get_hl(0, { name = "Normal", link = false }).bg
+vim.api.nvim_set_hl(0, "FloatTitle", { fg = "#89b4fa", bg = background, bold = true })
 for name, definition in pairs({
-  Border = { fg = "#89b4fa", bg = "#181825" },
+  Normal = { link = "Normal" },
+  Border = { fg = "#89b4fa", bg = background },
   Body = { fg = "#cdd6f4" },
   TaskTitle = { fg = "#cdd6f4" },
   Meta = { fg = "#a6adc8" },
