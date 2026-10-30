@@ -1,0 +1,105 @@
+*notification-tools.txt*  Notifications and progress for Neovim 0.10+
+
+SETUP                                                  *notification-tools*
+>
+    require("notification-tools").setup({})
+<
+No dependencies. Ordinary notifications appear at the top right. Progress tasks
+appear at the bottom right. Requiring the module alone has no setup side effects.
+The first API call initializes defaults if setup has not been called.
+
+API                                            *notification-tools-api*
+>
+    local tools = require("notification-tools")
+    local id = tools.notify("Hello", "info", { title = "Build", timeout = 4000 })
+    tools.notify("Updated", "warn", { id = id })
+    tools.dismiss(id)
+<
+notify(message, level?, opts?) returns an ID, or nil when filtered. Levels may
+be vim.log.levels values or case-insensitive names. opts: id, replace, title,
+icon, timeout. timeout=0 pins a notification. IDs are strings or finite numbers.
+Replacements update the corresponding history entry. Timeouts start at creation.
+
+history() returns an independent oldest-first snapshot of notification records.
+show_history() opens a scrollable history window. clear_history() clears history.
+dismiss() closes all ordinary notifications, preserving history and tasks.
+
+PROGRESS                                       *notification-tools-progress*
+>
+    local task = tools.progress({
+      id = "producer:job:1", title = "Build", source = "my-plugin",
+      message = "Starting", percentage = 0,
+    })
+    task:update({ percentage = 60, message = "Compiling" })
+    task:finish("Ready")
+<
+The caller owns its events, handles, and actual work cancellation. The plugin
+does not listen to business-plugin events. Use namespaced IDs to avoid clashes.
+
+progress(opts) returns a handle with id and the following methods:
+  :update(opts)             Update title/source/message/percentage.
+  :finish(message?, status?) End with success (default), error or cancelled.
+  :cancel(message?)        Mark cancelled; does not cancel the producer's work.
+  :is_active()             Whether updates are still accepted.
+
+percentage is clamped to integer 0..100. Omitted fields retain their values.
+The same active ID returns the same handle. Ended IDs may be reused. Old handles
+are inert after completion, eviction, clear_tasks(), setup(), or teardown().
+Mutation methods return the handle. After setup on the main loop, notification
+and task methods are safe from libuv callbacks. Window changes are scheduled
+onto the main loop and do not take focus.
+
+tasks() returns newest-first task snapshots. clear_tasks() clears all tasks.
+Completed results remain for progress.done_ttl milliseconds. Silent tasks time
+out after progress.stale_timeout milliseconds; 0 disables this timeout.
+
+OPTIONS                                        *notification-tools-options*
+
+notify=true              Own vim.notify; false only enables the explicit API.
+level=INFO               Minimum notification severity.
+timeout=4000             Notification lifetime in milliseconds; 0 pins.
+history_size=200         Maximum notification records; 0 disables history.
+max_notifications=5     Maximum visible notification windows.
+max_pending=100          Maximum records each for notifications and tasks.
+window.border="rounded" rounded/single/double/solid/none or empty string.
+window.winblend=0        Window transparency (0..100).
+window.min_width=24      Preferred minimum notification width, in cells.
+window.max_width=60      Maximum window width, constrained by the screen.
+window.max_height=8      Maximum notification body lines.
+window.top/right/bottom=1 Screen margins in cells.
+window.zindex=150        Float stacking priority.
+progress.enabled=true   Show the task panel; API remains available when false.
+progress.max_items=6     Maximum panel rows, including an overflow summary.
+progress.done_ttl=1500   Result lifetime in milliseconds.
+progress.stale_timeout=120000 Time without updates before timeout; 0 disables.
+progress.interval=80    Refresh interval in milliseconds (minimum 16).
+progress.avoid          Current-window filetypes that hide progress.
+progress.spinner        Nonempty list of nonempty animation frame strings.
+lsp.enabled=true        Subscribe to LspProgress/LspDetach without replacing
+                        server handlers or consuming the progress queue.
+lsp.ignore={}           Ignored LSP client names.
+icons                   TRACE/DEBUG/INFO/WARN/ERROR icon strings.
+
+Lists replace defaults. Screen space is shared without overlap between the two
+areas. Hidden notifications still expire; full messages remain in history.
+Repeated setup clears state. teardown() removes owned resources and restores
+the prior vim.notify only when this plugin still owns the function.
+
+COMMANDS                                       *notification-tools-commands*
+
+:Notifications           Show history; q or Escape closes it.
+:NotificationsDismiss    Dismiss ordinary notifications.
+:NotificationsClear      Clear notification history.
+:NotificationToolsDemo   Show example notifications and a progressing task.
+:checkhealth notification-tools
+
+HIGHLIGHTS                                     *notification-tools-highlights*
+
+NotificationToolsNormal, NotificationToolsBorder, NotificationToolsTitle,
+NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
+NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
+NotificationToolsDone. Defaults link to standard theme groups.
+
+See README.md and examples/ for lazy.nvim configuration and consumer adapters.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
