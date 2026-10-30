@@ -74,13 +74,13 @@ tools.dismiss(id)
 
 `notify(message, level?, opts?)` returns a string/number ID, or `nil` when discarded. Levels accept `vim.log.levels` values or case-insensitive names: `trace`, `debug`, `info`, `warn`, `error`, `off`. Table messages use `vim.inspect`.
 
-| Option | Behavior |
-| --- | --- |
-| `id` / `replace` | Update an existing record. `replace` accepts an ID or `{ id = ... }`. |
-| `title` / `source` | Display title and filterable origin; source defaults to title. |
-| `details` / `icon` | Optional secondary text and severity icon override. |
-| `timeout` | Lifetime in milliseconds; `0` pins the notification. |
-| `markdown` | Override inline Markdown for one notification. |
+| Option             | Behavior                                                              |
+| ------------------ | --------------------------------------------------------------------- |
+| `id` / `replace`   | Update an existing record. `replace` accepts an ID or `{ id = ... }`. |
+| `title` / `source` | Display title and filterable origin; source defaults to title.        |
+| `details` / `icon` | Optional secondary text and severity icon override.                   |
+| `timeout`          | Lifetime in milliseconds; `0` pins the notification.                  |
+| `markdown`         | Override inline Markdown for one notification.                        |
 
 Without an explicit ID, identical active notifications merge into one card, show `×N`, and restart their timeout. Matching includes source, title, body, details, severity, icon, timeout, and Markdown mode. Explicit updates preserve the count until content changes. Set `notification.merge_duplicates = false` to disable merging.
 
@@ -141,17 +141,17 @@ Open `:Notifications`, or start with filters:
 :Notifications level=warn source=lua_ls
 ```
 
-| Key | Action |
-| --- | --- |
-| `/`, `y` | Native search and copying. Yanks preserve original Markdown. |
-| `]n` / `[n` | Next / previous notification in the displayed order. |
-| `gl` | Choose a minimum severity. |
-| `gs` | Choose an exact source. |
-| `gt` | Filter by a case-insensitive title substring. |
-| `r` | Refresh while keeping the window, buffer, and selected record position. |
-| `R` | Reset filters and refresh. |
-| `<CR>` | Read the selected notification or task result in full. |
-| `q` / `<Esc>` | Close. |
+| Key           | Action                                                                  |
+| ------------- | ----------------------------------------------------------------------- |
+| `/`, `y`      | Native search and copying. Yanks preserve original Markdown.            |
+| `]n` / `[n`   | Next / previous notification in the displayed order.                    |
+| `gl`          | Choose a minimum severity.                                              |
+| `gs`          | Choose an exact source.                                                 |
+| `gt`          | Filter by a case-insensitive title substring.                           |
+| `r`           | Refresh while keeping the window, buffer, and selected record position. |
+| `R`           | Reset filters and refresh.                                              |
+| `<CR>`        | Read the selected notification or task result in full.                  |
+| `q` / `<Esc>` | Close.                                                                  |
 
 Unchanged history entries reuse their formatted text and Markdown spans. Refreshing an unchanged snapshot preserves its existing text and highlight extmarks.
 
@@ -308,15 +308,15 @@ See [types.lua](lua/notification-tools/types.lua) for `NotifyOptions`, `TaskOpti
 
 ## Commands and lifecycle
 
-| Command | Action |
-| --- | --- |
-| `:Notifications [level=…] [source=…] [title=…]` | Open filtered history. |
-| `:NotificationsLatest` | Read the latest ordinary notification in full. |
-| `:NotificationsDnd [on\|off\|toggle]` | Control do not disturb. |
-| `:NotificationsDismiss` | Dismiss ordinary notifications, retaining history and tasks. |
-| `:NotificationsClear` | Clear history. |
-| `:NotificationToolsDemo` | Preview notifications and tasks. |
-| `:checkhealth notification-tools` | Check requirements and competing owners. |
+| Command                                         | Action                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| `:Notifications [level=…] [source=…] [title=…]` | Open filtered history.                                       |
+| `:NotificationsLatest`                          | Read the latest ordinary notification in full.               |
+| `:NotificationsDnd [on\|off\|toggle]`           | Control do not disturb.                                      |
+| `:NotificationsDismiss`                         | Dismiss ordinary notifications, retaining history and tasks. |
+| `:NotificationsClear`                           | Clear history.                                               |
+| `:NotificationToolsDemo`                        | Preview notifications and tasks.                             |
+| `:checkhealth notification-tools`               | Check requirements and competing owners.                     |
 
 The API also provides `dismiss(id?)`, `history(opts?)`, `clear_history()`, `tasks()` (newest-first snapshots), `clear_tasks()`, and `teardown()`. After main-loop setup, notification/task methods can be called from libuv callbacks; window work is scheduled onto the main loop. Repeated `setup()` clears the previous instance. Teardown releases windows, timers, autocmds, and commands, restoring the prior `vim.notify` only if the plugin still owns it. A deadline-based scheduler sleeps between static notifications and schedules visible animation/fade frames only. Bursty producer updates are coalesced, and changed rows are updated without rebuilding unrelated highlights. No idle refresh timer is retained.
 
