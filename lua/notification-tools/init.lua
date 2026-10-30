@@ -3,6 +3,28 @@ local model = require("notification-tools.state")
 local config = require("notification-tools.config")
 local state, scheduler, group, previous_notify, owned_notify
 local generation = 0
+local view_ready = false
+
+-- Entry points/state stay available at startup; presentation loads on demand.
+local function get_view()
+  local view = require("notification-tools.view")
+  if not view_ready then
+    view.highlights()
+    view_ready = true
+  end
+  return view
+end
+
+local function wants_view()
+  for _, notice in pairs(state.notices) do
+    if notice.display ~= false then
+      return true
+    end
+  end
+  return state.config.progress.enabled
+    and next(state.tasks) ~= nil
+    and not vim.tbl_contains(state.config.progress.avoid, vim.bo.filetype)
+end
 
 local function render()
   if not state then
@@ -10,7 +32,10 @@ local function render()
   end
   model.expire(state)
   require("notification-tools.integrations").prune()
-  local visible = require("notification-tools.view").render(state)
+  local visible = { notices = {}, tasks = {}, bars = {} }
+  if view_ready or wants_view() then
+    visible = get_view().render(state)
+  end
   return model.next_delay(state, visible)
 end
 
@@ -95,7 +120,7 @@ function M.show_history(opts)
   local current = generation
   vim.schedule(function()
     if current == generation then
-      require("notification-tools.view").history(function()
+      get_view().history(function()
         return state.history
       end, opts, M.show_notification, reading_zindex())
     end
@@ -118,7 +143,7 @@ function M.show_notification(id)
     if current ~= generation then
       return
     end
-    local view = require("notification-tools.view")
+    local view = get_view()
     view.close_history() -- resume the previous reader before pausing this one
     local active = state.notices[id]
     if active then
@@ -224,6 +249,7 @@ function M.teardown()
     require("notification-tools.commands").clear()
   end
   state = nil
+  view_ready = false
 end
 
 function M.setup(opts)
@@ -233,14 +259,14 @@ function M.setup(opts)
   state = model.new(resolved)
   scheduler =
     require("notification-tools.scheduler").new(render, math.min(33, resolved.progress.interval))
-  local view = require("notification-tools.view")
-  view.highlights()
   group = vim.api.nvim_create_augroup("NotificationTools", { clear = true })
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
     callback = function()
-      view.highlights()
-      request_render()
+      if view_ready then
+        get_view().highlights()
+        request_render()
+      end
     end,
   })
   vim.api.nvim_create_autocmd({ "VimResized", "UIEnter", "WinEnter", "BufEnter" }, {

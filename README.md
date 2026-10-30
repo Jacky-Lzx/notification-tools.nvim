@@ -49,6 +49,8 @@ Without a plugin manager, add this repository to `runtimepath` and call:
 require("notification-tools").setup()
 ```
 
+Keep `lazy = false` so the lightweight entry points capture startup notifications and LSP progress. Display modules load only when a popup, task panel, or history window is requested. Empty events, filtered/history-only messages, and hidden task panels do not load the UI. Plain task progress does not load the Markdown renderer.
+
 Try `:NotificationToolsDemo` to preview both corners, or run `:checkhealth notification-tools` to check the setup. `require()` alone has no setup side effects; the first API call initializes defaults if needed.
 
 ## Send a notification

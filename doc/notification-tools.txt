@@ -7,6 +7,10 @@ SETUP                                                  *notification-tools*
 No dependencies. Ordinary notifications appear at the top right. Progress tasks
 appear at the bottom right. Requiring the module alone has no setup side effects.
 The first API call initializes defaults if setup has not been called.
+Keep the plugin enabled at startup to capture early vim.notify/LSP events. Setup
+registers the lightweight entry points; UI/layout load on first display, history
+loads on demand, and plain task progress does not load Markdown. Empty events,
+filtered/history-only notices and hidden panels do not initialize display modules.
 
 API                                            *notification-tools-api*
 >

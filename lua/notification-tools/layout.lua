@@ -1,6 +1,6 @@
 local M = {}
 local model = require("notification-tools.state")
-local markdown = require("notification-tools.markdown")
+local markdown
 local text = require("notification-tools.text")
 local text_cache = setmetatable({}, { __mode = "k" })
 local shared_cache = setmetatable({}, { __mode = "k" })
@@ -109,6 +109,7 @@ local function header(left, left_group, right, width)
 end
 
 local function formatted(notice, config)
+  markdown = markdown or require("notification-tools.markdown")
   local enabled = notice.markdown
   if enabled == nil then
     enabled = config.notification.markdown
