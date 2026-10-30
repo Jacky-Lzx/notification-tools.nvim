@@ -11,12 +11,11 @@
 
 ## 安装
 
-当前为本地插件。lazy.nvim 配置可直接参考 [examples/lazy.lua](examples/lazy.lua)：
+lazy.nvim 配置可直接参考 [examples/lazy.lua](examples/lazy.lua)：
 
 ```lua
 {
-  dir = vim.fn.expand("~/Documents/Github/nvim_plugins/notification-tools.nvim"),
-  name = "notification-tools.nvim",
+  "Jacky-Lzx/notification-tools.nvim",
   main = "notification-tools",
   lazy = false,
   priority = 1100,
