@@ -28,169 +28,34 @@ local function ensure()
   end
 end
 
-local function text(value)
-  return type(value) == "table" and vim.inspect(value) or tostring(value or "")
-end
-
-local function valid_id(id)
-  assert(type(id) == "string" or type(id) == "number", "id must be a string or number")
-  assert(type(id) ~= "number" or (id == id and math.abs(id) < math.huge), "id must be finite")
-  return id
-end
-
-local function trim(items)
-  local sorted = model.sorted(items)
-  for i = state.config.max_pending + 1, #sorted do
-    items[sorted[i].id] = nil
-  end
-end
-
 ---Display a top-right notification. timeout=0 pins it until dismissed.
 ---@return string|number|nil id
 function M.notify(message, level, opts)
   ensure()
-  opts = opts or {}
-  local explicit = opts.id ~= nil or opts.replace ~= nil
-  local id = opts.id or opts.replace
-  if type(id) == "table" then
-    id = id.id
-  end
-  if id ~= nil then
-    valid_id(id)
-  end
-  local old = id ~= nil and state.notices[id] or nil
-  level = config.level(level or (old and old.level) or vim.log.levels.INFO)
-  if level < state.config.level or level == vim.log.levels.OFF then
+  local owner, current = state, generation
+  local id, filter_error = model.notify(owner, message, level, opts)
+  if state ~= owner then
     return nil
   end
-  local timeout = opts.timeout
-  if timeout == nil then
-    timeout = state.config.timeout
-  end
-  assert(
-    type(timeout) == "number" and timeout >= 0 and timeout < math.huge,
-    "timeout must be finite and >= 0"
-  )
-  local message_text = text(message)
-  local title = text(opts.title or (old and old.title) or "Notification")
-  local source = text(opts.source or (old and old.source) or title)
-  local details = opts.details ~= nil and text(opts.details) or (old and old.details) or ""
-  local icon = opts.icon or (old and old.icon)
-  local markdown = opts.markdown
-  if markdown == nil and old then
-    markdown = old.markdown
-  end
-  if markdown == nil then
-    markdown = state.config.notification.markdown
-  end
-  assert(type(markdown) == "boolean", "markdown must be a boolean")
-  local route = "show"
-  if state.config.notification.filter then
-    local ok, result = pcall(state.config.notification.filter, {
-      id = id,
-      message = message_text,
-      level = level,
-      title = title,
-      source = source,
-      details = details,
-      icon = icon,
-      markdown = markdown,
-      timeout = timeout,
-    })
-    if ok and (result == nil or vim.tbl_contains({ "show", "history", "drop" }, result)) then
-      route = result or "show"
-    else
-      local error_text = ok and "expected show, history, drop or nil" or tostring(result)
-      local current = generation
-      vim.schedule(function()
-        if current == generation then
-          vim.api.nvim_err_writeln("notification-tools filter: " .. error_text)
-        end
-      end)
-    end
-  end
-  if route == "drop" then
-    return nil
-  end
-  local display = route == "show"
-    and (not state.dnd or level >= state.config.notification.dnd_level)
-  local now = model.now()
-  if not explicit and state.config.notification.merge_duplicates then
-    for _, item in ipairs(model.sorted(state.notices)) do
-      if
-        (not item.expires or item.expires > now)
-        and item.message == message_text
-        and item.title == title
-        and item.source == source
-        and item.display == display
-        and item.details == details
-        and item.level == level
-        and item.icon == icon
-        and item.timeout == timeout
-        and item.markdown == markdown
-      then
-        old, id = item, item.id
-        break
+  if filter_error then
+    vim.schedule(function()
+      if current == generation then
+        vim.api.nvim_err_writeln("notification-tools filter: " .. filter_error)
       end
-    end
+    end)
   end
-  id = id or model.id()
-  local same = old
-    and old.message == message_text
-    and old.title == title
-    and old.source == source
-    and old.level == level
-    and old.details == details
-    and old.icon == icon
-    and old.markdown == markdown
-  state.serial = state.serial + 1
-  local notice = {
-    id = id,
-    kind = "notification",
-    message = message_text,
-    level = level,
-    title = title,
-    source = source,
-    display = display,
-    details = details,
-    icon = icon,
-    markdown = markdown,
-    count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
-    time = os.time(),
-    order = old and old.order or state.serial,
-    content_revision = old
-        and old.message == message_text
-        and old.details == details
-        and old.markdown == markdown
-        and old.content_revision
-      or state.serial,
-    revision = state.serial,
-    timeout = timeout,
-    paused = old and old.paused or nil,
-    remaining = old and old.paused and timeout > 0 and timeout or nil,
-    expires = not (old and old.paused) and timeout > 0 and (now + timeout) or nil,
-  }
-  state.notices[id] = notice
-  model.archive(state, notice)
-  trim(state.notices)
-  changed()
+  if id then
+    changed()
+  end
   return id
 end
 
 ---DND only affects ordinary popups. Suppressed notices are not replayed.
 function M.set_dnd(enabled)
   ensure()
-  assert(type(enabled) == "boolean", "dnd must be a boolean")
-  state.dnd = enabled
-  if enabled then
-    for _, notice in pairs(state.notices) do
-      if notice.level < state.config.notification.dnd_level then
-        notice.display = false
-      end
-    end
-  end
+  local result = model.set_dnd(state, enabled)
   request_render()
-  return state.dnd
+  return result
 end
 
 function M.is_dnd()
@@ -205,23 +70,19 @@ end
 ---Dismiss one notification, or all notifications. History and tasks are retained.
 function M.dismiss(id)
   ensure()
-  if id == nil then
-    state.notices = {}
-  else
-    state.notices[valid_id(id)] = nil
-  end
+  model.dismiss(state, id)
   request_render()
 end
 
 ---Return an independent, oldest-first snapshot.
 function M.history(opts)
   ensure()
-  return require("notification-tools.history").filter(vim.deepcopy(state.history), opts)
+  return model.history(state, opts)
 end
 
 function M.clear_history()
   ensure()
-  state.history = {}
+  model.clear_history(state)
 end
 
 local function reading_zindex()
@@ -230,57 +91,24 @@ end
 
 function M.show_history(opts)
   ensure()
-  opts = require("notification-tools.history").options(opts)
+  opts = require("notification-tools.records").options(opts)
   local current = generation
   vim.schedule(function()
     if current == generation then
-      require("notification-tools.view").history(
-        M.history,
-        opts,
-        M.show_notification,
-        reading_zindex()
-      )
+      require("notification-tools.view").history(function()
+        return state.history
+      end, opts, M.show_notification, reading_zindex())
     end
   end)
-end
-
-local function find_notice(id)
-  if id ~= nil then
-    if state.notices[id] then
-      return state.notices[id]
-    end
-    for i = #state.history, 1, -1 do
-      if state.history[i].id == id then
-        return state.history[i]
-      end
-    end
-    return nil
-  end
-  local latest
-  local function consider(item)
-    if
-      item.kind ~= "task"
-      and (not latest or (item.revision or item.order) > (latest.revision or latest.order))
-    then
-      latest = item
-    end
-  end
-  for _, item in ipairs(state.history) do
-    consider(item)
-  end
-  for _, item in pairs(state.notices) do
-    consider(item)
-  end
-  return latest
 end
 
 ---Read a complete notice; an active notice's remaining timeout pauses until closed.
 function M.show_notification(id)
   ensure()
   if id ~= nil then
-    valid_id(id)
+    model.valid_id(id)
   end
-  local item = find_notice(id)
+  local item = model.find_notice(state, id)
   if not item then
     return nil
   end
@@ -306,7 +134,7 @@ function M.show_notification(id)
       end
     end
     local ok, err = pcall(view.notification, function()
-      return { vim.deepcopy(find_notice(id) or snapshot) }
+      return { model.find_notice(state, id) or snapshot }
     end, resume, reading_zindex())
     if not ok then
       resume()
@@ -317,80 +145,35 @@ function M.show_notification(id)
   return id
 end
 
-local function update_task(task, opts)
-  local history = opts.history ~= nil and config.task_history(opts.history)
-  local percentage
-  if opts.percentage ~= nil then
-    local value = opts.percentage
-    assert(
-      type(value) == "number" and value == value and math.abs(value) < math.huge,
-      "percentage must be finite"
-    )
-    percentage = math.floor(math.max(0, math.min(100, value)))
-  end
-  for _, key in ipairs({ "title", "message", "source" }) do
-    if opts[key] ~= nil then
-      task[key] = text(opts[key])
-    end
-  end
-  if percentage ~= nil then
-    task.percentage = percentage
-  end
-  if opts.history ~= nil then
-    task.history = history
-  end
-  task.updated = model.now()
-end
-
 ---Create or retrieve a bottom-right task. Handles are inert after teardown/replacement.
 function M.progress(opts)
   ensure()
   opts = opts or {}
-  local id = valid_id(opts.id or model.id())
+  local id = model.valid_id(opts.id or model.id())
   local task = state.tasks[id]
   if task and not task.done then
     task.handle:update(opts)
     return task.handle
   end
-  state.serial = state.serial + 1
-  task = {
-    id = id,
-    title = "Working",
-    message = "",
-    source = "",
-    history = state.config.progress.history,
-    order = state.serial,
-    started = model.now(),
-  }
-  update_task(task, opts)
-  local owner = state
+  task = model.new_task(state, id, opts)
+  local current = generation
   local handle = { id = id }
   local function alive()
-    return state == owner and state.tasks[id] == task and not task.done
+    return generation == current and state ~= nil and state.tasks[id] == task and not task.done
   end
   function handle:is_active()
     return alive()
   end
   function handle:update(update)
     if alive() then
-      update_task(task, update or {})
+      model.update_task(task, update or {})
       changed()
     end
     return self
   end
   function handle:finish(message, status)
     if alive() then
-      status = status or "success"
-      assert(vim.tbl_contains({ "success", "error", "cancelled" }, status), "invalid task status")
-      model.finish_task(
-        state,
-        task,
-        text(
-          message
-            or (status == "success" and "Completed" or status == "error" and "Error" or "Cancelled")
-        ),
-        status
-      )
+      model.finish_task(state, task, message, status)
       changed()
     end
     return self
@@ -398,32 +181,19 @@ function M.progress(opts)
   function handle:cancel(message)
     return self:finish(message, "cancelled")
   end
-  state.tasks[id] = task
-  task.handle = handle
-  trim(state.tasks)
+  model.add_task(state, task, handle)
   changed()
   return handle
 end
 
 function M.tasks()
   ensure()
-  local items = model.sorted(state.tasks)
-  local result = {}
-  for _, task in ipairs(items) do
-    local copy = {}
-    for key, value in pairs(task) do
-      if key ~= "handle" then
-        copy[key] = value
-      end
-    end
-    result[#result + 1] = copy
-  end
-  return result
+  return model.tasks(state)
 end
 
 function M.clear_tasks()
   ensure()
-  state.tasks = {}
+  model.clear_tasks(state)
   require("notification-tools.integrations").reset()
   request_render()
 end
@@ -450,15 +220,8 @@ function M.teardown()
   if package.loaded["notification-tools.integrations"] then
     require("notification-tools.integrations").reset()
   end
-  for _, name in ipairs({
-    "Notifications",
-    "NotificationsDismiss",
-    "NotificationsClear",
-    "NotificationsDnd",
-    "NotificationsLatest",
-    "NotificationToolsDemo",
-  }) do
-    pcall(vim.api.nvim_del_user_command, name)
+  if package.loaded["notification-tools.commands"] then
+    require("notification-tools.commands").clear()
   end
   state = nil
 end
@@ -473,7 +236,13 @@ function M.setup(opts)
   local view = require("notification-tools.view")
   view.highlights()
   group = vim.api.nvim_create_augroup("NotificationTools", { clear = true })
-  vim.api.nvim_create_autocmd("ColorScheme", { group = group, callback = view.highlights })
+  vim.api.nvim_create_autocmd("ColorScheme", {
+    group = group,
+    callback = function()
+      view.highlights()
+      request_render()
+    end,
+  })
   vim.api.nvim_create_autocmd({ "VimResized", "UIEnter", "WinEnter", "BufEnter" }, {
     group = group,
     callback = request_render,
@@ -494,64 +263,7 @@ function M.setup(opts)
   })
   vim.api.nvim_create_autocmd("VimLeavePre", { group = group, callback = M.teardown })
   require("notification-tools.integrations").setup(M, resolved, group)
-  vim.api.nvim_create_user_command("Notifications", function(args)
-    local opts = {}
-    for _, arg in ipairs(args.fargs) do
-      local key, value = arg:match("^(%a+)=(.+)$")
-      assert(
-        key == "level" or key == "source" or key == "title",
-        "expected level=, source= or title="
-      )
-      opts[key] = value
-    end
-    M.show_history(opts)
-  end, {
-    desc = "Notification history",
-    force = true,
-    nargs = "*",
-    complete = function()
-      return { "level=", "source=", "title=" }
-    end,
-  })
-  vim.api.nvim_create_user_command("NotificationsDismiss", function()
-    M.dismiss()
-  end, { desc = "Dismiss visible notifications", force = true })
-  vim.api.nvim_create_user_command(
-    "NotificationsClear",
-    M.clear_history,
-    { desc = "Clear notification history", force = true }
-  )
-  vim.api.nvim_create_user_command("NotificationsLatest", function()
-    if not M.show_notification() then
-      vim.api.nvim_echo({ { "No notifications" } }, false, {})
-    end
-  end, { desc = "Read the latest notification", force = true })
-  vim.api.nvim_create_user_command("NotificationsDnd", function(args)
-    local value = args.args
-    assert(
-      value == "" or vim.tbl_contains({ "on", "off", "toggle" }, value),
-      "expected on, off or toggle"
-    )
-    local enabled
-    if value == "on" or value == "off" then
-      enabled = M.set_dnd(value == "on")
-    else
-      enabled = M.toggle_dnd()
-    end
-    vim.api.nvim_echo({ { "Notifications DND: " .. (enabled and "on" or "off") } }, false, {})
-  end, {
-    nargs = "?",
-    force = true,
-    desc = "Toggle notification do not disturb",
-    complete = function()
-      return { "on", "off", "toggle" }
-    end,
-  })
-  vim.api.nvim_create_user_command(
-    "NotificationToolsDemo",
-    M.demo,
-    { desc = "Preview notifications and tasks", force = true }
-  )
+  require("notification-tools.commands").setup(M)
   if resolved.notify then
     previous_notify = vim.notify
     owned_notify = function(...)

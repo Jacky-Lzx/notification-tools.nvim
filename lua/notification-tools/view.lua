@@ -18,6 +18,7 @@ local function highlight(name)
 end
 
 function M.highlights()
+  frame_highlights = nil
   fade_cache = {}
   style_cache = {}
   for name, link in pairs({

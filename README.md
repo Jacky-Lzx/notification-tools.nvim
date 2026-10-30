@@ -139,6 +139,8 @@ Open `:Notifications`, or start with filters:
 | `<CR>` | Read the selected notification or task result in full. |
 | `q` / `<Esc>` | Close. |
 
+Unchanged history entries reuse their formatted text and Markdown spans. Refreshing an unchanged snapshot preserves its existing text and highlight extmarks.
+
 Filters intersect. Fresh history opens with the most recently created/updated record at the top. New messages do not interrupt reading; press `r` to fetch them. Filters and the visible record count appear in the window title.
 
 **Move onto a line to see its Markdown source.** Other lines stay concealed; leaving the line hides the markers again. The buffer text never changes.
@@ -240,7 +242,7 @@ Full defaults: [config.lua](lua/notification-tools/config.lua). Detailed referen
 
 Notifications and the task panel follow the active tab. Switching tabs closes a reader and resumes its paused timeout.
 
-Notification content and layouts are cached independently of timeout and repeat-count updates. Preview wrapping stops at the visible line budget while retaining full source text in history.
+Parsed notification content is reused across timeout, title, and repeat-count updates. Unchanged layouts are cached by display constraints. Preview wrapping stops at the visible line budget while retaining full source text in history.
 
 Widths use display cells and only grow during a float's lifetime, except when the screen shrinks. Small screens drop optional task gaps, details, and source labels before hiding tasks. Hidden notifications still expire. Fades stay inside the configured lifetime, and completed tasks fade independently of active siblings. True-color terminals give the best blending.
 
@@ -307,6 +309,25 @@ NOTIFICATION_TOOLS_NUI_ROOT=/path/to/nui.nvim sh tests/run.sh
 Real terminal checks: `nvim -n -u tests/tui.lua -i NONE`, `tests/history_tui.lua`, or `tests/reading_tui.lua`. Set `NOTIFICATION_TOOLS_THEME_ROOT=/path/to/catppuccin` for Catppuccin Mocha and `NOTIFICATION_TOOLS_TUI_EXIT=1` to exit after verification. Results are written to `NOTIFICATION_TOOLS_TUI_RESULT` or each script's default temporary path.
 
 To regenerate the images, run `python3 scripts/screenshots.py` (Neovim, Python 3.9+, and `rsvg-convert` required). The script captures Neovim's real RGB UI redraw events, including plugin windows and conceal, then rasterizes that grid to PNG. Set `NOTIFICATION_TOOLS_THEME_ROOT` for Catppuccin and `--font` to select an installed monospace font. It adds no plugin runtime dependencies.
+
+### Internal structure
+
+- `init.lua` owns the public API, integration wiring, and instance lifetime.
+- `state.lua` owns notification/task transitions, retention, snapshots, and deadlines.
+- `scheduler.lua` coalesces updates and manages a cancellable one-shot timer.
+- `text.lua`, `markdown.lua`, and `layout.lua` handle bounded text processing and cached layout plans.
+- `view.lua` applies row-level floating-window changes; `history.lua` owns browsing and per-record formatting caches.
+- `records.lua` filters records without importing UI code; `commands.lua` manages command registration and ownership.
+
+Internal history browsing reads retained records without constructing public snapshots. Public `history()` results remain independent copies. Caches are bounded by retained records and released on teardown.
+
+For a repeatable 105 KB message microbenchmark (warm layout, bounded wrapping, and metadata updates):
+
+```sh
+nvim --headless -n -u NONE -i NONE --noplugin -l scripts/benchmark.lua
+```
+
+Results are JSON in milliseconds and depend on the machine/Neovim build. They measure layout work, not complete interactive UI latency.
 
 ## License
 

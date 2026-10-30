@@ -8,26 +8,8 @@ local ns
 local names = { [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF" }
 local session
 
-function M.options(opts)
-  assert(opts == nil or type(opts) == "table", "history options must be a table")
-  opts = vim.deepcopy(opts or {})
-  if opts.level ~= nil then
-    opts.level = levels.level(opts.level)
-  end
-  for _, key in ipairs({ "source", "title" }) do
-    assert(opts[key] == nil or type(opts[key]) == "string", key .. " must be a string")
-  end
-  return opts
-end
-
-function M.filter(items, opts)
-  opts = M.options(opts)
-  return vim.tbl_filter(function(item)
-    return (not opts.level or item.level >= opts.level)
-      and (not opts.source or (item.source or item.title) == opts.source)
-      and (not opts.title or item.title:lower():find(opts.title:lower(), 1, true) ~= nil)
-  end, items)
-end
+M.options = require("notification-tools.records").options
+M.filter = require("notification-tools.records").filter
 
 local function valid(s)
   return session == s and api.nvim_win_is_valid(s.win) and api.nvim_buf_is_valid(s.buf)
@@ -73,18 +55,25 @@ function M.highlights()
   if not s or not valid(s) then
     return
   end
-  api.nvim_buf_clear_namespace(s.buf, ns, 0, -1)
-  for _, mark in ipairs(s.marks) do
-    local options = {
-      end_col = mark.finish,
-      hl_group = "NotificationTools" .. s.styled(mark.hl, mark.style),
-      priority = 100,
-    }
-    if mark.conceal then
-      options.conceal, options.priority = "", 200
-    end
-    api.nvim_buf_set_extmark(s.buf, ns, mark.row, mark.col, options)
+  local changed = not vim.deep_equal(s.applied_marks, s.marks)
+  if changed then
+    api.nvim_buf_clear_namespace(s.buf, ns, 0, -1)
   end
+  local groups = {}
+  for _, mark in ipairs(s.marks) do
+    local key = mark.hl .. ":" .. (mark.style or "")
+    if not groups[key] then
+      groups[key] = "NotificationTools" .. s.styled(mark.hl, mark.style)
+    end
+    if changed then
+      local options = { end_col = mark.finish, hl_group = groups[key], priority = 100 }
+      if mark.conceal then
+        options.conceal, options.priority = "", 200
+      end
+      api.nvim_buf_set_extmark(s.buf, ns, mark.row, mark.col, options)
+    end
+  end
+  s.applied_marks = s.marks
 end
 
 local function selected(s, row)
@@ -112,6 +101,70 @@ local function geometry(count, title, zindex)
   }
 end
 
+-- Cache per-record layout and body spans separately so repeat-count/header
+-- updates do not reparse unchanged Markdown. All cached rows stay relative.
+local function formatted(item, cached)
+  if cached and cached.item == item then
+    return cached
+  end
+  local body = cached and cached.body
+  if
+    not body
+    or body.message ~= item.message
+    or body.details ~= item.details
+    or body.markdown ~= item.markdown
+  then
+    body = {
+      lines = {},
+      marks = {},
+      message = item.message,
+      details = item.details,
+      markdown = item.markdown,
+    }
+    local function content(value, group)
+      value = clean(value)
+      local offset = #body.lines
+      vim.list_extend(body.lines, vim.split(value, "\n", { plain = true }))
+      for _, mark in ipairs(markdown.source(value, group, item.markdown)) do
+        mark.row = mark.row + offset
+        body.marks[#body.marks + 1] = mark
+      end
+    end
+    content(item.message, "Body")
+    if item.details and item.details ~= "" then
+      content(item.details, "Meta")
+    end
+  end
+  local header, marks = "", {}
+  for _, chunk in ipairs({
+    { os.date("%H:%M:%S", item.time), "Meta" },
+    { "  " .. names[item.level] .. "  ", names[item.level] },
+    { clean(item.title):gsub("\n", " "), "Title" },
+    {
+      item.source and item.source ~= "" and item.source ~= item.title and ("  [" .. clean(
+        item.source
+      ):gsub("\n", " ") .. "]") or "",
+      "Source",
+    },
+    { (item.count or 1) > 1 and ("  ×" .. item.count) or "", "Meta" },
+  }) do
+    local col = #header
+    header = header .. chunk[1]
+    if #header > col then
+      marks[#marks + 1] = { row = 0, col = col, finish = #header, hl = chunk[2] }
+    end
+  end
+  local lines = { header }
+  vim.list_extend(lines, body.lines)
+  lines[#lines + 1] = ""
+  for _, mark in ipairs(body.marks) do
+    local copy = vim.tbl_extend("force", {}, mark)
+    copy.row = copy.row + 1
+    marks[#marks + 1] = copy
+  end
+  return { item = item, body = body, lines = lines, marks = marks }
+end
+
 local function redraw(s, preserve)
   if not valid(s) then
     return
@@ -120,55 +173,44 @@ local function redraw(s, preserve)
   local anchor = preserve and selected(s, cursor[1])
   local saved = preserve and api.nvim_win_call(s.win, vim.fn.winsaveview)
   local lines, marks, entries = {}, {}, {}
-  local items = M.filter(s.provider(), s.filters)
+  local records = s.provider()
+  local alive = {}
+  for _, item in ipairs(records) do
+    alive[item.id] = true
+  end
+  for id in pairs(s.cache) do
+    if not alive[id] then
+      s.cache[id] = nil
+    end
+  end
+  local items = M.filter(records, s.filters)
   -- Providers keep the public oldest-first snapshot; only the UI reverses it.
   for index = #items, 1, -1 do
     local item = items[index]
-    local row, header = #lines, ""
-    for _, chunk in ipairs({
-      { os.date("%H:%M:%S", item.time), "Meta" },
-      { "  " .. names[item.level] .. "  ", names[item.level] },
-      { clean(item.title):gsub("\n", " "), "Title" },
-      {
-        item.source and item.source ~= "" and item.source ~= item.title and ("  [" .. clean(
-          item.source
-        ):gsub("\n", " ") .. "]") or "",
-        "Source",
-      },
-      { (item.count or 1) > 1 and ("  ×" .. item.count) or "", "Meta" },
-    }) do
-      local col = #header
-      header = header .. chunk[1]
-      if #header > col then
-        marks[#marks + 1] = { row = row, col = col, finish = #header, hl = chunk[2] }
-      end
+    local cached = formatted(item, s.cache[item.id])
+    s.cache[item.id] = cached
+    local offset = #lines
+    vim.list_extend(lines, cached.lines)
+    for _, mark in ipairs(cached.marks) do
+      local copy = vim.tbl_extend("force", {}, mark)
+      copy.row = copy.row + offset
+      marks[#marks + 1] = copy
     end
-    local first = #lines + 1
-    lines[#lines + 1] = header
-    local function content(text, group)
-      text = clean(text)
-      local offset = #lines
-      vim.list_extend(lines, vim.split(text, "\n", { plain = true }))
-      for _, mark in ipairs(markdown.source(text, group, item.markdown)) do
-        mark.row = mark.row + offset
-        marks[#marks + 1] = mark
-      end
-    end
-    content(item.message, "Body")
-    if item.details and item.details ~= "" then
-      content(item.details, "Meta")
-    end
-    lines[#lines + 1] = ""
-    entries[#entries + 1] = { item = item, first = first, last = #lines }
+    entries[#entries + 1] = { item = item, first = offset + 1, last = #lines }
   end
   if #lines == 0 then
     lines = { "No notifications" }
     marks = { { row = 0, col = 0, finish = #lines[1], hl = "Meta" } }
   end
   s.entries, s.marks = entries, marks
-  vim.bo[s.buf].modifiable = true
-  api.nvim_buf_set_lines(s.buf, 0, -1, false, lines)
-  vim.bo[s.buf].modifiable = false
+  if not vim.deep_equal(s.lines, lines) then
+    vim.bo[s.buf].modifiable = true
+    api.nvim_buf_set_lines(s.buf, 0, -1, false, lines)
+    vim.bo[s.buf].modifiable = false
+    -- Rewriting the buffer can relocate marks even if the next ranges match.
+    s.applied_marks = nil
+  end
+  s.lines = lines
   local label = s.detail and " Notification" or " Notifications"
   if s.filters.level then
     label = label .. " · " .. names[s.filters.level] .. "+"
@@ -179,10 +221,11 @@ local function redraw(s, preserve)
   if s.filters.title then
     label = label .. " · " .. clean(s.filters.title):gsub("\n", " ")
   end
-  api.nvim_win_set_config(
-    s.win,
-    geometry(#lines, label .. (s.detail and " " or " · " .. #items .. " "), s.zindex)
-  )
+  local window = geometry(#lines, label .. (s.detail and " " or " · " .. #items .. " "), s.zindex)
+  if not vim.deep_equal(s.geometry, window) then
+    api.nvim_win_set_config(s.win, window)
+    s.geometry = window
+  end
   M.highlights()
   if preserve then
     local row = math.min(cursor[1], #lines)
@@ -253,6 +296,7 @@ function M.open(provider, opts, styled, handlers)
     styled = styled,
     entries = {},
     marks = {},
+    cache = {},
     detail = handlers.detail,
     zindex = handlers.zindex,
     on_close = handlers.close,

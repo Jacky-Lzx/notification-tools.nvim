@@ -52,7 +52,15 @@ function M.new(callback, interval)
     if not timer then
       timer = assert(uv.new_timer())
     end
-    timer:start(math.max(1, math.ceil(delay)), 0, enqueue)
+    local due = now() + delay
+    timer:start(math.max(1, math.ceil(delay)), 0, function()
+      local remaining = due - now()
+      if remaining > 0 then
+        arm(remaining)
+      else
+        enqueue()
+      end
+    end)
   end
   function self:request()
     if self.closed then

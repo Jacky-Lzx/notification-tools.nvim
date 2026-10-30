@@ -205,8 +205,18 @@ h.eq(1, #tools.history())
 tools.teardown()
 model.now = clock
 tools.setup({ notify = false })
+tools.notify("**Theme reload**", "info", { timeout = 0 })
+h.wait(function()
+  return notice("Theme reload") ~= nil
+end)
 for _, theme in ipairs({ "morning", "evening" }) do
   vim.cmd.colorscheme(theme)
+  h.wait(function()
+    local bold =
+      vim.api.nvim_get_hl(0, { name = "NotificationToolsBodyMarkdownBold", link = false })
+    local base = vim.api.nvim_get_hl(0, { name = "NotificationToolsBody", link = false })
+    return bold.bold == true and bold.fg == base.fg
+  end)
   local text = vim.api.nvim_get_hl(0, { name = "NotificationToolsBody", link = false })
   local float = vim.api.nvim_get_hl(0, { name = "NormalFloat", link = false })
   local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
