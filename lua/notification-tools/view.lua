@@ -237,7 +237,9 @@ function M.render(state)
   local top = n.top + (tabline and 1 or 0)
   local screen_bottom = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
   local bottom = screen_bottom - n.bottom
-  local notices = model.sorted(state.notices)
+  local notices = vim.tbl_filter(function(notice)
+    return notice.display ~= false
+  end, model.sorted(state.notices))
   local tasks = model.sorted(state.tasks, true)
   local used, now = {}, model.now()
   if

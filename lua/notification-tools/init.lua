@@ -112,6 +112,7 @@ function M.notify(message, level, opts)
   )
   local message_text = text(message)
   local title = text(opts.title or (old and old.title) or "Notification")
+  local source = text(opts.source or (old and old.source) or title)
   local details = opts.details ~= nil and text(opts.details) or (old and old.details) or ""
   local icon = opts.icon or (old and old.icon)
   local markdown = opts.markdown
@@ -122,6 +123,36 @@ function M.notify(message, level, opts)
     markdown = state.config.notification.markdown
   end
   assert(type(markdown) == "boolean", "markdown must be a boolean")
+  local route = "show"
+  if state.config.notification.filter then
+    local ok, result = pcall(state.config.notification.filter, {
+      id = id,
+      message = message_text,
+      level = level,
+      title = title,
+      source = source,
+      details = details,
+      icon = icon,
+      markdown = markdown,
+      timeout = timeout,
+    })
+    if ok and (result == nil or vim.tbl_contains({ "show", "history", "drop" }, result)) then
+      route = result or "show"
+    else
+      local error_text = ok and "expected show, history, drop or nil" or tostring(result)
+      local current = generation
+      vim.schedule(function()
+        if current == generation then
+          vim.api.nvim_err_writeln("notification-tools filter: " .. error_text)
+        end
+      end)
+    end
+  end
+  if route == "drop" then
+    return nil
+  end
+  local display = route == "show"
+    and (not state.dnd or level >= state.config.notification.dnd_level)
   local now = model.now()
   if not explicit and state.config.notification.merge_duplicates then
     for _, item in ipairs(model.sorted(state.notices)) do
@@ -129,6 +160,8 @@ function M.notify(message, level, opts)
         (not item.expires or item.expires > now)
         and item.message == message_text
         and item.title == title
+        and item.source == source
+        and item.display == display
         and item.details == details
         and item.level == level
         and item.icon == icon
@@ -144,6 +177,7 @@ function M.notify(message, level, opts)
   local same = old
     and old.message == message_text
     and old.title == title
+    and old.source == source
     and old.level == level
     and old.details == details
     and old.icon == icon
@@ -154,6 +188,8 @@ function M.notify(message, level, opts)
     message = message_text,
     level = level,
     title = title,
+    source = source,
+    display = display,
     details = details,
     icon = icon,
     markdown = markdown,
@@ -168,6 +204,31 @@ function M.notify(message, level, opts)
   trim(state.notices)
   changed()
   return id
+end
+
+---DND only affects ordinary popups. Suppressed notices are not replayed.
+function M.set_dnd(enabled)
+  ensure()
+  assert(type(enabled) == "boolean", "dnd must be a boolean")
+  state.dnd = enabled
+  if enabled then
+    for _, notice in pairs(state.notices) do
+      if notice.level < state.config.notification.dnd_level then
+        notice.display = false
+      end
+    end
+  end
+  request_render()
+  return state.dnd
+end
+
+function M.is_dnd()
+  ensure()
+  return state.dnd
+end
+
+function M.toggle_dnd()
+  return M.set_dnd(not M.is_dnd())
 end
 
 ---Dismiss one notification, or all notifications. History and tasks are retained.
@@ -334,6 +395,7 @@ function M.teardown()
     "Notifications",
     "NotificationsDismiss",
     "NotificationsClear",
+    "NotificationsDnd",
     "NotificationToolsDemo",
   }) do
     pcall(vim.api.nvim_del_user_command, name)
@@ -374,6 +436,27 @@ function M.setup(opts)
     M.clear_history,
     { desc = "Clear notification history", force = true }
   )
+  vim.api.nvim_create_user_command("NotificationsDnd", function(args)
+    local value = args.args
+    assert(
+      value == "" or vim.tbl_contains({ "on", "off", "toggle" }, value),
+      "expected on, off or toggle"
+    )
+    local enabled
+    if value == "on" or value == "off" then
+      enabled = M.set_dnd(value == "on")
+    else
+      enabled = M.toggle_dnd()
+    end
+    vim.api.nvim_echo({ { "Notifications DND: " .. (enabled and "on" or "off") } }, false, {})
+  end, {
+    nargs = "?",
+    force = true,
+    desc = "Toggle notification do not disturb",
+    complete = function()
+      return { "on", "off", "toggle" }
+    end,
+  })
   vim.api.nvim_create_user_command(
     "NotificationToolsDemo",
     M.demo,

@@ -7,7 +7,14 @@ function M.now()
 end
 
 function M.new(config)
-  return { config = config, notices = {}, tasks = {}, history = {}, serial = 0 }
+  return {
+    config = config,
+    notices = {},
+    tasks = {},
+    history = {},
+    serial = 0,
+    dnd = config.notification.dnd,
+  }
 end
 
 function M.id()

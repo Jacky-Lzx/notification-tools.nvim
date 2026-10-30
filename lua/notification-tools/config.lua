@@ -21,6 +21,9 @@ M.defaults = {
     padding = { horizontal = 1, vertical = 0 },
   },
   notification = {
+    dnd = false,
+    dnd_level = vim.log.levels.ERROR,
+    -- filter(notice) -> "show" (or nil), "history", "drop"
     markdown = true,
     merge_duplicates = true,
     timestamp = true,
@@ -67,6 +70,7 @@ function M.resolve(opts)
     { config.notification, "merge_duplicates" },
     { config.notification, "markdown" },
     { config.notification, "timestamp" },
+    { config.notification, "dnd" },
     { config.progress, "group_by_source" },
     { config.progress, "show_elapsed" },
   }) do
@@ -145,6 +149,11 @@ function M.resolve(opts)
   for _, frame in ipairs(config.progress.spinner) do
     assert(type(frame) == "string" and frame ~= "", "spinner frames must be nonempty strings")
   end
+  assert(
+    config.notification.filter == nil or type(config.notification.filter) == "function",
+    "notification.filter must be a function"
+  )
+  config.notification.dnd_level = M.level(config.notification.dnd_level)
   config.level = M.level(config.level)
   return config
 end

@@ -17,7 +17,7 @@ API                                            *notification-tools-api*
 <
 notify(message, level?, opts?) returns an ID, or nil when filtered. Levels may
 be vim.log.levels values or case-insensitive names. opts: id, replace, title,
-icon, details, markdown, timeout. details is optional secondary text. timeout=0 pins a
+icon, source, details, markdown, timeout. details is optional secondary text. timeout=0 pins a
 notification. IDs are strings or finite numbers.
 Replacements update the corresponding history entry. Timeouts start at creation.
 
@@ -47,6 +47,22 @@ to false to disable automatic merging. History includes the merged count.
 history() returns an independent oldest-first snapshot of notification records.
 show_history() opens a scrollable history window. clear_history() clears history.
 dismiss() closes all ordinary notifications, preserving history and tasks.
+
+ROUTING                                        *notification-tools-routing*
+
+notification.dnd=false enables do-not-disturb when true. Only levels at least
+notification.dnd_level (ERROR by default) pop up; OFF suppresses all levels.
+Tasks are unaffected. Suppressed notices stay in history and are never replayed.
+set_dnd(boolean), toggle_dnd(), is_dnd() return the resulting/current state.
+:NotificationsDnd [on|off|toggle] toggles when no argument is given.
+
+notification.filter is an optional synchronous callback receiving independent
+normalized fields (message, level, title, source, details, timeout, etc.). Return
+"show" or nil for normal display, "history" for history only, "drop" to ignore
+(returning nil from notify). DND also applies to "show". The global minimum level
+is checked first. Errors/invalid results are reported without recursive notify,
+and fall back to "show". source defaults to title and is inherited on replacement.
+Different sources do not auto-merge.
 
 PROGRESS                                       *notification-tools-progress*
 >

@@ -33,6 +33,36 @@ require("notification-tools").setup()
 `:NotificationToolsDemo` 预览两个区域，`:checkhealth notification-tools` 检查环境。
 仅 `require()` 不会接管通知；第一次调用 API 会使用默认配置初始化，建议先显式 `setup()`。
 
+## 免打扰与过滤
+
+`:NotificationsDnd [on|off|toggle]` 切换免打扰（不带参数时切换）。
+默认只允许 ERROR 弹出，其他通知仍记录到历史；任务面板不受影响。
+开启时也会收起已有的低等级弹窗，关闭后不会补弹旧消息。
+
+```lua
+local tools = require("notification-tools")
+tools.setup({
+  notification = {
+    dnd = false,
+    dnd_level = "error", -- "off"：免打扰时所有等级都不弹出
+    filter = function(notice)
+      if notice.source == "noisy-plugin" then return "drop" end
+      if notice.source == "background-build" then return "history" end
+      return "show" -- nil 也表示正常显示；仍受免打扰限制
+    end,
+  },
+})
+tools.set_dnd(true)
+local enabled = tools.is_dnd()
+tools.toggle_dnd()
+tools.notify("Built", "info", { source = "background-build", title = "Build" })
+```
+
+`source` 默认使用通知标题，显式替换时继承原来源；不同来源的通知不会自动合并。
+过滤器收到独立的规范化字段表（message/level/title/source/details/timeout 等）；
+`"history"` 仅记录，`"drop"` 忽略并返回 nil。最低等级 `level` 在过滤器之前生效。
+过滤器须同步返回；抛错或返回非法值会报告错误并按 `"show"` 处理，不调用 `vim.notify` 递归报错。
+
 ## 通知 API
 
 ```lua
