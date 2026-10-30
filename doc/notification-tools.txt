@@ -72,7 +72,9 @@ remaining time, rather than a fresh full timeout. Replacing/merging a notice whi
 reading resets that remaining time to the new timeout; r shows the updated text.
 Pinned notices remain pinned. Expired/dismissed notices are read from history and
 are never resurrected. history_size=0 still permits reading a live notice.
-Only one history/reading window is open at a time. Switching readers, externally
+Notifications and progress follow the active tab. Switching tabs closes the
+reader and resumes its paused timeout. Only one history/reading window is open
+at a time. Switching readers, externally
 closing/wiping the buffer, setup and teardown clean up the reading state. Reading
 windows appear above the plugin's ordinary popups and task panel. They use the
 same filetype, colors and cursor-line source reveal as history.

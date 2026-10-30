@@ -502,9 +502,18 @@ function M.setup(opts)
   view.highlights()
   group = vim.api.nvim_create_augroup("NotificationTools", { clear = true })
   vim.api.nvim_create_autocmd("ColorScheme", { group = group, callback = view.highlights })
-  vim.api.nvim_create_autocmd({ "VimResized", "UIEnter", "TabEnter", "WinEnter", "BufEnter" }, {
+  vim.api.nvim_create_autocmd({ "VimResized", "UIEnter", "WinEnter", "BufEnter" }, {
     group = group,
     callback = request_render,
+  })
+  vim.api.nvim_create_autocmd("TabEnter", {
+    group = group,
+    callback = function()
+      if package.loaded["notification-tools.history"] then
+        require("notification-tools.history").close_hidden()
+      end
+      request_render()
+    end,
   })
   vim.api.nvim_create_autocmd("OptionSet", {
     group = group,

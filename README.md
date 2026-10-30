@@ -238,6 +238,8 @@ Full defaults: [config.lua](lua/notification-tools/config.lua). Detailed referen
 
 </details>
 
+Notifications and the task panel follow the active tab. Switching tabs closes a reader and resumes its paused timeout.
+
 Widths use display cells and only grow during a float's lifetime, except when the screen shrinks. Small screens drop optional task gaps, details, and source labels before hiding tasks. Hidden notifications still expire. Fades stay inside the configured lifetime, and completed tasks fade independently of active siblings. True-color terminals give the best blending.
 
 ### Theme it with highlight groups

@@ -58,6 +58,16 @@ function M.close()
   finish(s)
 end
 
+function M.close_hidden()
+  if
+    session
+    and api.nvim_win_is_valid(session.win)
+    and api.nvim_win_get_tabpage(session.win) ~= api.nvim_get_current_tabpage()
+  then
+    M.close()
+  end
+end
+
 function M.highlights()
   local s = session
   if not s or not valid(s) then

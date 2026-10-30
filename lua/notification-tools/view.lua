@@ -128,7 +128,14 @@ end
 
 local function draw(key, plan, row, config, opacity, fade_out, now)
   local entry = windows[key]
-  if entry and (not api.nvim_win_is_valid(entry.win) or not api.nvim_buf_is_valid(entry.buf)) then
+  if
+    entry
+    and (
+      not api.nvim_win_is_valid(entry.win)
+      or not api.nvim_buf_is_valid(entry.buf)
+      or api.nvim_win_get_tabpage(entry.win) ~= api.nvim_get_current_tabpage()
+    )
+  then
     close(key)
     entry = nil
   end
