@@ -141,4 +141,48 @@ function M.expire(state)
   end
 end
 
+-- Compute deadlines independently of drawing. Hidden items still expire, but
+-- only visible items require animation/fade frames.
+function M.next_delay(state, visible)
+  visible = visible or { notices = {}, tasks = {} }
+  local now, next_at = M.now(), nil
+  local function wake(at)
+    if at and (not next_at or at < next_at) then
+      next_at = at
+    end
+  end
+  local frame = math.min(33, state.config.progress.interval)
+  local function expiry(item, fade, shown)
+    wake(item.expires)
+    if item.expires and shown and fade > 0 then
+      local start = item.expires - math.min(fade, item.timeout or item.lifetime or fade)
+      wake(now < start and start or math.min(item.expires, now + frame))
+    end
+  end
+  for id, notice in pairs(state.notices) do
+    expiry(notice, state.config.notification.fade_out, visible.notices[id])
+  end
+  local p = state.config.progress
+  for id, task in pairs(state.tasks) do
+    local shown = visible.tasks[id]
+    expiry(task, p.fade_out, shown)
+    if not task.done then
+      if p.stale_timeout > 0 then
+        wake(task.updated + p.stale_timeout)
+      end
+      if shown then
+        if #p.spinner > 1 then
+          wake((math.floor(now / p.interval) + 1) * p.interval)
+        end
+        if p.show_elapsed and task.percentage == nil then
+          local age = math.max(0, now - task.started)
+          local step = age < 60000 and 100 or age < 3600000 and 1000 or 60000
+          wake(task.started + (math.floor(age / step) + 1) * step)
+        end
+      end
+    end
+  end
+  return next_at and math.max(1, next_at - now) or nil
+end
+
 return M

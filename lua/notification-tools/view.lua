@@ -6,6 +6,16 @@ local style_cache = {}
 local api = vim.api
 local ns = api.nvim_create_namespace("notification-tools")
 local windows = {}
+local frame_highlights
+local function highlight(name)
+  if not frame_highlights then
+    return api.nvim_get_hl(0, { name = name, link = false })
+  end
+  if not frame_highlights[name] then
+    frame_highlights[name] = api.nvim_get_hl(0, { name = name, link = false })
+  end
+  return vim.deepcopy(frame_highlights[name])
+end
 
 function M.highlights()
   fade_cache = {}
@@ -32,7 +42,7 @@ function M.highlights()
     api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, link = link })
   end
   local float = api.nvim_get_hl(0, { name = "NormalFloat", link = false })
-  local normal = api.nvim_get_hl(0, { name = "Normal", link = false })
+  local normal = highlight("Normal")
   for _, name in ipairs({ "Body", "TaskTitle" }) do
     api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, fg = float.fg or normal.fg })
   end
@@ -46,7 +56,7 @@ local function styled(key, style)
     return key
   end
   local name = key .. "Markdown" .. style
-  local definition = api.nvim_get_hl(0, { name = "NotificationTools" .. key, link = false })
+  local definition = highlight("NotificationTools" .. key)
   definition.default = nil
   if style:find("Bold", 1, true) then
     definition.bold = true
@@ -107,10 +117,10 @@ local function faded(key, opacity, surface)
   if step >= 8 then
     return base
   end
-  local definition = api.nvim_get_hl(0, { name = base, link = false })
-  local normal = api.nvim_get_hl(0, { name = "NotificationTools" .. surface, link = false })
-  local editor = api.nvim_get_hl(0, { name = "Normal", link = false })
-  local muted = api.nvim_get_hl(0, { name = "Comment", link = false })
+  local definition = highlight(base)
+  local normal = highlight("NotificationTools" .. surface)
+  local editor = highlight("Normal")
+  local muted = highlight("Comment")
   local foreground = definition.fg or normal.fg or editor.fg
   local background = definition.bg or normal.bg or editor.bg or muted.fg
   if not foreground or not background then
@@ -163,22 +173,24 @@ local function draw(key, plan, row, config, opacity, fade_out, now)
   end
   entry.options, entry.width = options, plan.width
   local normal = key == "progress" and "ProgressNormal" or "NotificationNormal"
-  vim.wo[entry.win].winhighlight = "Normal:NotificationTools"
+  local winhighlight = "Normal:NotificationTools"
     .. normal
     .. ",FloatBorder:NotificationToolsBorder"
-  vim.wo[entry.win].winblend =
-    math.floor(config.winblend + (100 - config.winblend) * (1 - (opacity or 1)))
-  vim.wo[entry.win].wrap = false
-  local content_changed = not vim.deep_equal(entry.lines, plan.lines)
-  if content_changed then
-    vim.bo[entry.buf].modifiable = true
-    api.nvim_buf_set_lines(entry.buf, 0, -1, false, plan.lines)
-    vim.bo[entry.buf].modifiable = false
-    entry.lines = plan.lines
+  if entry.winhighlight ~= winhighlight then
+    vim.wo[entry.win].winhighlight = winhighlight
+    vim.wo[entry.win].wrap = false
+    entry.winhighlight = winhighlight
   end
-  local marks = {}
+  local blend = math.floor(config.winblend + (100 - config.winblend) * (1 - (opacity or 1)))
+  if entry.blend ~= blend then
+    vim.wo[entry.win].winblend = blend
+    entry.blend = blend
+  end
+  local rows = {}
   for _, mark in ipairs(plan.marks) do
-    marks[#marks + 1] = {
+    local row = mark.row + 1
+    rows[row] = rows[row] or {}
+    rows[row][#rows[row] + 1] = {
       row = mark.row,
       col = mark.col,
       finish = mark.finish,
@@ -189,19 +201,42 @@ local function draw(key, plan, row, config, opacity, fade_out, now)
       ),
     }
   end
-  if content_changed or not vim.deep_equal(entry.marks, marks) then
-    api.nvim_buf_clear_namespace(entry.buf, ns, 0, -1)
-    for _, mark in ipairs(marks) do
-      api.nvim_buf_set_extmark(
-        entry.buf,
-        ns,
-        mark.row,
-        mark.col,
-        { end_col = mark.finish, hl_group = mark.hl }
-      )
-    end
-    entry.marks = marks
+  local structural = not entry.lines or #entry.lines ~= #plan.lines
+  local content_changed = not vim.deep_equal(entry.lines, plan.lines)
+  if content_changed then
+    vim.bo[entry.buf].modifiable = true
   end
+  if structural then
+    api.nvim_buf_clear_namespace(entry.buf, ns, 0, -1)
+    api.nvim_buf_set_lines(entry.buf, 0, -1, false, plan.lines)
+  end
+  for row, line in ipairs(plan.lines) do
+    local changed_text = not structural and entry.lines[row] ~= line
+    local changed_marks = structural
+      or changed_text
+      or not vim.deep_equal((entry.row_marks or {})[row], rows[row])
+    if changed_marks then
+      if not structural then
+        api.nvim_buf_clear_namespace(entry.buf, ns, row - 1, row)
+      end
+      if changed_text then
+        api.nvim_buf_set_lines(entry.buf, row - 1, row, false, { line })
+      end
+      for _, mark in ipairs(rows[row] or {}) do
+        api.nvim_buf_set_extmark(
+          entry.buf,
+          ns,
+          mark.row,
+          mark.col,
+          { end_col = mark.finish, hl_group = mark.hl }
+        )
+      end
+    end
+  end
+  if content_changed then
+    vim.bo[entry.buf].modifiable = false
+  end
+  entry.lines, entry.row_marks = plan.lines, rows
 end
 
 local function notice_key(notice)
@@ -209,6 +244,7 @@ local function notice_key(notice)
 end
 
 function M.render(state)
+  frame_highlights = {}
   local config = state.config
   local n, p = config.notification.window, config.progress.window
   local tabline = vim.o.showtabline == 2
@@ -221,6 +257,7 @@ function M.render(state)
   end, model.sorted(state.notices))
   local tasks = model.sorted(state.tasks, true)
   local used, now = {}, model.now()
+  local visible = { notices = {}, tasks = {} }
   if
     config.progress.enabled
     and #tasks > 0
@@ -242,6 +279,9 @@ function M.render(state)
       local row = screen_bottom - p.bottom - #plan.lines - layout.border(p)
       draw("progress", plan, row, p, nil, config.progress.fade_out, now)
       used.progress = true
+      for i = 1, plan.displayed do
+        visible.tasks[tasks[i].id] = true
+      end
       bottom = math.min(bottom, row - math.max(n.gap, p.gap))
     end
   end
@@ -277,6 +317,7 @@ function M.render(state)
       now
     )
     used[entry.key] = true
+    visible.notices[entry.notice.id] = true
     row = row + #entry.plan.lines + layout.border(n) + n.gap
   end
   for key in pairs(windows) do
@@ -284,6 +325,8 @@ function M.render(state)
       close(key)
     end
   end
+  frame_highlights = nil
+  return visible
 end
 
 function M.history(provider, opts, on_select, zindex)

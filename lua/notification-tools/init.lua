@@ -1,18 +1,8 @@
 local M = {}
 local model = require("notification-tools.state")
 local config = require("notification-tools.config")
-local uv = vim.uv or vim.loop
-local state, timer, group, previous_notify, owned_notify
-local queued = false
+local state, scheduler, group, previous_notify, owned_notify
 local generation = 0
-
-local function stop_timer()
-  if timer then
-    timer:stop()
-    timer:close()
-    timer = nil
-  end
-end
 
 local function render()
   if not state then
@@ -20,46 +10,17 @@ local function render()
   end
   model.expire(state)
   require("notification-tools.integrations").prune()
-  require("notification-tools.view").render(state)
-  local needs_timer = false
-  for _, notice in pairs(state.notices) do
-    needs_timer = needs_timer or notice.expires ~= nil
-  end
-  for _, task in pairs(state.tasks) do
-    needs_timer = needs_timer
-      or task.expires ~= nil
-      or (
-        not task.done
-        and (state.config.progress.enabled or state.config.progress.stale_timeout > 0)
-      )
-  end
-  if not needs_timer then
-    stop_timer()
-  end
+  local visible = require("notification-tools.view").render(state)
+  return model.next_delay(state, visible)
 end
 
 local function request_render()
-  if queued then
-    return
+  if scheduler then
+    scheduler:request()
   end
-  queued = true
-  local current = generation
-  vim.schedule(function()
-    if current == generation then
-      queued = false
-      render()
-    end
-  end)
 end
 
-local function changed()
-  request_render()
-  if not timer then
-    timer = assert(uv.new_timer())
-    local interval = math.min(33, state.config.progress.interval)
-    timer:start(interval, interval, request_render)
-  end
-end
+local changed = request_render
 
 local function ensure()
   if not state then
@@ -469,8 +430,10 @@ end
 
 function M.teardown()
   generation = generation + 1
-  queued = false
-  stop_timer()
+  if scheduler then
+    scheduler:close()
+    scheduler = nil
+  end
   if group then
     pcall(vim.api.nvim_del_augroup_by_id, group)
     group = nil
@@ -482,6 +445,7 @@ function M.teardown()
   if package.loaded["notification-tools.view"] then
     require("notification-tools.view").close()
     require("notification-tools.view").close_history()
+    require("notification-tools.layout").reset()
   end
   if package.loaded["notification-tools.integrations"] then
     require("notification-tools.integrations").reset()
@@ -504,6 +468,8 @@ function M.setup(opts)
   local resolved = config.resolve(opts)
   M.teardown()
   state = model.new(resolved)
+  scheduler =
+    require("notification-tools.scheduler").new(render, math.min(33, resolved.progress.interval))
   local view = require("notification-tools.view")
   view.highlights()
   group = vim.api.nvim_create_augroup("NotificationTools", { clear = true })
@@ -523,7 +489,7 @@ function M.setup(opts)
   })
   vim.api.nvim_create_autocmd("OptionSet", {
     group = group,
-    pattern = { "cmdheight", "laststatus", "showtabline" },
+    pattern = { "cmdheight", "laststatus", "showtabline", "ambiwidth", "emoji" },
     callback = request_render,
   })
   vim.api.nvim_create_autocmd("VimLeavePre", { group = group, callback = M.teardown })

@@ -189,6 +189,11 @@ when the screen shrinks. Source groups and their tasks keep creation order.
 Notices append in creation order; updates do not reorder them. Recent notices
 are preferred on overflow. Public task/history snapshot ordering is unchanged.
 
+Static notices sleep until their fade/expiration deadline. Visible spinner and
+elapsed-time changes schedule their own frames; hidden task panels do not animate.
+Producer bursts are rate-limited for painting while state updates remain immediate.
+Changed task rows retain unrelated text and highlight extmarks.
+
 Fade durations of 0 disable fading. Fades do not extend timeout or done_ttl;
 pinned notices never fade. True-color terminals provide the best color blending.
 Lists replace defaults. Screen space is shared without overlap between the two

@@ -5,6 +5,7 @@ local text = require("notification-tools.text")
 local text_cache = setmetatable({}, { __mode = "k" })
 local shared_cache = setmetatable({}, { __mode = "k" })
 local plans = setmetatable({}, { __mode = "k" })
+local progress_plans = setmetatable({}, { __mode = "k" })
 
 M.clean = text.clean
 
@@ -268,7 +269,7 @@ local function elapsed(task, now)
   return ("%.1fs"):format(seconds)
 end
 
-function M.progress(tasks, config, maximum, height, minimum, now)
+local function progress(tasks, config, maximum, height, minimum, now)
   if maximum < 4 or height < 1 or #tasks == 0 then
     return nil
   end
@@ -389,6 +390,40 @@ function M.progress(tasks, config, maximum, height, minimum, now)
   end
   result.displayed = count
   return result
+end
+
+function M.progress(tasks, config, maximum, height, minimum, now)
+  now = now or model.now()
+  local p = config.progress
+  local key = { maximum, height, minimum or 0, text.metrics(), #tasks }
+  for i = 1, math.min(#tasks, p.max_items, math.max(0, height)) do
+    local task = tasks[i]
+    key[#key + 1] = {
+      task,
+      task.title,
+      task.message,
+      task.source,
+      task.done or false,
+      task.status or false,
+      task.percentage or false,
+      not task.done and p.spinner[math.floor(now / p.interval) % #p.spinner + 1] or "",
+      task.percentage == nil and p.show_elapsed and elapsed(task, now) or "",
+    }
+  end
+  local cached = progress_plans[config]
+  if cached and vim.deep_equal(cached.key, key) then
+    return cached.plan
+  end
+  local plan = progress(tasks, config, maximum, height, minimum, now)
+  progress_plans[config] = { key = key, plan = plan }
+  return plan
+end
+
+function M.reset()
+  text_cache = setmetatable({}, { __mode = "k" })
+  shared_cache = setmetatable({}, { __mode = "k" })
+  plans = setmetatable({}, { __mode = "k" })
+  progress_plans = setmetatable({}, { __mode = "k" })
 end
 
 return M

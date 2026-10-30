@@ -286,7 +286,7 @@ The adapter is loaded by your configuration; the plugin itself has no Noice/NUI 
 | `:NotificationToolsDemo` | Preview notifications and tasks. |
 | `:checkhealth notification-tools` | Check requirements and competing owners. |
 
-The API also provides `dismiss(id?)`, `history(opts?)`, `clear_history()`, `tasks()` (newest-first snapshots), `clear_tasks()`, and `teardown()`. After main-loop setup, notification/task methods can be called from libuv callbacks; window work is scheduled onto the main loop. Repeated `setup()` clears the previous instance. Teardown releases windows, timers, autocmds, and commands, restoring the prior `vim.notify` only if the plugin still owns it. No idle refresh timer is retained.
+The API also provides `dismiss(id?)`, `history(opts?)`, `clear_history()`, `tasks()` (newest-first snapshots), `clear_tasks()`, and `teardown()`. After main-loop setup, notification/task methods can be called from libuv callbacks; window work is scheduled onto the main loop. Repeated `setup()` clears the previous instance. Teardown releases windows, timers, autocmds, and commands, restoring the prior `vim.notify` only if the plugin still owns it. A deadline-based scheduler sleeps between static notifications and schedules visible animation/fade frames only. Bursty producer updates are coalesced, and changed rows are updated without rebuilding unrelated highlights. No idle refresh timer is retained.
 
 ## Development
 
