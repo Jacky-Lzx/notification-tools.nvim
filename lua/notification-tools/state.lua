@@ -58,6 +58,30 @@ function M.opacity(item, duration, now)
   return math.max(0, math.min(1, (item.expires - (now or M.now())) / duration))
 end
 
+function M.pause(notice)
+  if notice.paused then
+    return
+  end
+  if notice.expires then
+    local remaining = notice.expires - M.now()
+    if remaining <= 0 then
+      return
+    end
+    notice.remaining, notice.expires = remaining, nil
+  end
+  notice.paused = true
+end
+
+function M.resume(notice)
+  if not notice.paused then
+    return
+  end
+  if notice.remaining then
+    notice.expires = M.now() + notice.remaining
+  end
+  notice.paused, notice.remaining = nil, nil
+end
+
 -- One terminal transition for explicit completion and inactivity timeouts.
 function M.finish_task(state, task, message, status)
   local now = M.now()

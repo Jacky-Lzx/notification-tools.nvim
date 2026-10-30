@@ -58,6 +58,24 @@ ID and line offset when it is still available. New notices do not auto-refresh.
 Active filters and the visible record count appear in the window title.
 dismiss() closes all ordinary notifications, preserving history and tasks.
 
+READING                                        *notification-tools-reading*
+
+show_notification(id?) opens one complete notice. Without an ID, it chooses the
+most recently created/updated ordinary notice. Explicit IDs can also address task
+result history. Returns the record ID, or nil if unavailable. Window work is
+scheduled. :NotificationsLatest reads the latest ordinary notice. In history,
+<CR> reads the selected record. q/Escape close; r refreshes its current content.
+
+Reading an active notice pauses its remaining timeout. Closing resumes the
+remaining time, rather than a fresh full timeout. Replacing/merging a notice while
+reading resets that remaining time to the new timeout; r shows the updated text.
+Pinned notices remain pinned. Expired/dismissed notices are read from history and
+are never resurrected. history_size=0 still permits reading a live notice.
+Only one history/reading window is open at a time. Switching readers, externally
+closing/wiping the buffer, setup and teardown clean up the reading state. Reading
+windows appear above the plugin's ordinary popups and task panel. They use the
+same filetype, colors and cursor-line source reveal as history.
+
 ROUTING                                        *notification-tools-routing*
 
 notification.dnd=false enables do-not-disturb when true. Only levels at least
@@ -181,6 +199,8 @@ COMMANDS                                       *notification-tools-commands*
                          source reveal; q or Escape closes it.
 :NotificationsDismiss    Dismiss ordinary notifications.
 :NotificationsClear      Clear notification history.
+:NotificationsDnd [on|off|toggle] Toggle do-not-disturb (no argument also toggles).
+:NotificationsLatest     Read the latest ordinary notice; pause its active timeout.
 :NotificationToolsDemo   Show example notifications and a progressing task.
 :checkhealth notification-tools
 

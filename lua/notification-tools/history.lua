@@ -4,11 +4,12 @@ local api = vim.api
 local clean = require("notification-tools.layout").clean
 local markdown = require("notification-tools.markdown")
 local levels = require("notification-tools.config")
-local ns = api.nvim_create_namespace("notification-tools")
+local ns
 local names = { [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF" }
 local session
 
 function M.options(opts)
+  assert(opts == nil or type(opts) == "table", "history options must be a table")
   opts = vim.deepcopy(opts or {})
   if opts.level ~= nil then
     opts.level = levels.level(opts.level)
@@ -32,12 +33,29 @@ local function valid(s)
   return session == s and api.nvim_win_is_valid(s.win) and api.nvim_buf_is_valid(s.buf)
 end
 
+local function finish(s)
+  if s.closed then
+    return
+  end
+  s.closed = true
+  if session == s then
+    session = nil
+  end
+  if s.on_close then
+    s.on_close()
+  end
+end
+
 function M.close()
   local s = session
+  if not s then
+    return
+  end
   session = nil
-  if s and api.nvim_win_is_valid(s.win) then
+  if api.nvim_win_is_valid(s.win) then
     api.nvim_win_close(s.win, true)
   end
+  finish(s)
 end
 
 function M.highlights()
@@ -67,7 +85,7 @@ local function selected(s, row)
   end
 end
 
-local function geometry(count, title)
+local function geometry(count, title, zindex)
   local width = math.max(1, math.min(100, vim.o.columns - 4))
   local height = math.max(1, math.min(count, vim.o.lines - vim.o.cmdheight - 5))
   return {
@@ -80,6 +98,7 @@ local function geometry(count, title)
     style = "minimal",
     title = title,
     title_pos = "center",
+    zindex = zindex or 151,
   }
 end
 
@@ -138,7 +157,7 @@ local function redraw(s, preserve)
   vim.bo[s.buf].modifiable = true
   api.nvim_buf_set_lines(s.buf, 0, -1, false, lines)
   vim.bo[s.buf].modifiable = false
-  local label = " Notifications"
+  local label = s.detail and " Notification" or " Notifications"
   if s.filters.level then
     label = label .. " · " .. names[s.filters.level] .. "+"
   end
@@ -148,7 +167,10 @@ local function redraw(s, preserve)
   if s.filters.title then
     label = label .. " · " .. clean(s.filters.title):gsub("\n", " ")
   end
-  api.nvim_win_set_config(s.win, geometry(#lines, label .. " · " .. #items .. " "))
+  api.nvim_win_set_config(
+    s.win,
+    geometry(#lines, label .. (s.detail and " " or " · " .. #items .. " "), s.zindex)
+  )
   M.highlights()
   if preserve then
     local row = math.min(cursor[1], #lines)
@@ -203,12 +225,14 @@ function M.jump(direction)
   end
 end
 
-function M.open(provider, opts, styled)
+function M.open(provider, opts, styled, handlers)
+  handlers = handlers or {}
+  ns = ns or api.nvim_create_namespace("notification-tools")
   M.close()
   local buf = api.nvim_create_buf(false, true)
   vim.bo[buf].bufhidden = "wipe"
   vim.bo[buf].filetype = "notification-tools-history"
-  local win = api.nvim_open_win(buf, true, geometry(1, " Notifications "))
+  local win = api.nvim_open_win(buf, true, geometry(1, " Notifications ", handlers.zindex))
   session = {
     win = win,
     buf = buf,
@@ -217,8 +241,19 @@ function M.open(provider, opts, styled)
     styled = styled,
     entries = {},
     marks = {},
+    detail = handlers.detail,
+    zindex = handlers.zindex,
+    on_close = handlers.close,
   }
   local s = session
+  vim.b[buf].notification_tools_detail = s.detail == true
+  api.nvim_create_autocmd({ "BufWipeout", "BufWinLeave" }, {
+    buffer = buf,
+    once = true,
+    callback = function()
+      finish(s)
+    end,
+  })
   vim.wo[win].wrap, vim.wo[win].linebreak = true, true
   vim.wo[win].conceallevel, vim.wo[win].concealcursor = 2, "c"
   vim.wo[win].winhighlight = "Normal:NotificationToolsNormal,FloatBorder:NotificationToolsBorder"
@@ -229,7 +264,18 @@ function M.open(provider, opts, styled)
   for _, key in ipairs({ "q", "<Esc>" }) do
     map(key, M.close, "Close history")
   end
-  map("r", M.refresh, "Refresh history")
+  map("r", M.refresh, "Refresh notification contents")
+  if s.detail then
+    return
+  end
+  if handlers.select then
+    map("<CR>", function()
+      local entry = selected(s, api.nvim_win_get_cursor(s.win)[1])
+      if entry then
+        handlers.select(entry.item.id)
+      end
+    end, "Read selected notification")
+  end
   map("R", function()
     s.filters = {}
     redraw(s, true)

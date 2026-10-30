@@ -279,8 +279,22 @@ function M.render(state)
   end
 end
 
-function M.history(provider, opts)
-  require("notification-tools.history").open(provider, opts, styled)
+function M.history(provider, opts, on_select, zindex)
+  require("notification-tools.history").open(
+    provider,
+    opts,
+    styled,
+    { select = on_select, zindex = zindex }
+  )
+end
+
+function M.notification(provider, on_close, zindex)
+  require("notification-tools.history").open(
+    provider,
+    {},
+    styled,
+    { detail = true, close = on_close, zindex = zindex }
+  )
 end
 
 return M

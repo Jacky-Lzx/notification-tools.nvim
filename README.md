@@ -46,6 +46,7 @@ require("notification-tools").setup()
 | `gt` | 按标题子串筛选（不区分大小写） |
 | `r` | 读取最新历史，按通知 ID 保留光标和阅读位置 |
 | `R` | 清除所有筛选条件并刷新 |
+| `<CR>` | 阅读选中的完整通知 / 任务结果 |
 | `q` / `<Esc>` | 关闭 |
 
 筛选条件显示在窗口标题中。刷新使用原窗口和缓冲区，不会在新通知到来时自动打断阅读。
@@ -57,6 +58,23 @@ tools.show_history({ level = "warn", source = "compiler", title = "Build" })
 ```
 
 等级、来源和标题条件取交集；来源默认使用通知标题。标题或来源包含空格时建议使用 Lua API。
+
+## 阅读长通知
+
+`:NotificationsLatest` 打开最近创建或更新的普通通知；也可以在历史中按 `<CR>` 阅读选中条目，包括任务结果。
+阅读窗口显示完整正文和附加信息，保留颜色和光标行 Markdown 展开，`r` 刷新内容，`q` / `<Esc>` 关闭。
+
+```lua
+local tools = require("notification-tools")
+tools.show_notification()   -- 最新普通通知；返回 ID，找不到时返回 nil
+tools.show_notification(id) -- 指定活动通知或历史记录（包括任务结果）的 ID
+```
+
+阅读活动通知期间暂停剩余超时，关闭窗口后继续剩余时间，不会重新获得一个完整超时周期。
+阅读期间替换/合并通知会更新内容并重置剩余时间；按 `r` 查看最新版本。
+固定通知仍然固定；已过期或被关闭的通知只从历史读取，不会重新弹出。
+同一时间只打开一个历史/阅读窗口，切换窗口、手动关窗、删除缓冲区或重新 setup 都会清理阅读状态。
+`history_size = 0` 时仍可阅读尚未被移除的活动通知。
 
 ## 免打扰与过滤
 
@@ -111,7 +129,7 @@ tools.dismiss() -- 关闭所有普通通知，保留任务和历史
 相同 ID 更新通知，并在历史中保留最新版本；表类型消息使用 `vim.inspect`。
 `timeout` 从调用时开始计时，超出屏幕显示数量的通知仍会记录到历史中。
 
-不传 `id/replace` 时，相同标题、正文、附加信息、级别、图标和超时设置的活动通知会合并为一条，返回相同 ID，显示 `×N` 并重置消失时间。历史保留一条带 `count` 的最新记录。
+不传 `id/replace` 时，相同来源、标题、正文、附加信息、级别、图标和超时设置的活动通知会合并为一条，返回相同 ID，显示 `×N` 并重置消失时间。历史保留一条带 `count` 的最新记录。
 显式 ID 始终独立；显式更新不会增加计数，内容改变时计数归一。
 设置 `notification.merge_duplicates = false` 可关闭自动合并。
 
@@ -228,6 +246,9 @@ require("notification-tools").setup({
     gap = 1,
   },
   notification = {
+    dnd = false,
+    dnd_level = "error",
+    -- filter = function(notice) return "show" end,
     markdown = true,
     merge_duplicates = true,
     timestamp = true, -- 标题右侧显示时间；重复时显示 ×N
@@ -279,6 +300,8 @@ LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results �
 - `:Notifications`：带颜色和 Markdown conceal 的历史浮窗，光标行自动展开原文，`q` / `<Esc>` 关闭。
 - `:NotificationsDismiss`：关闭普通通知。
 - `:NotificationsClear`：清空历史。
+- `:NotificationsDnd [on|off|toggle]`：免打扰；不带参数时切换。
+- `:NotificationsLatest`：阅读最新普通通知，暂停活动通知的剩余超时。
 - `:NotificationToolsDemo`：预览通知和进度。
 
 高亮组：`NotificationToolsNormal`、`NotificationToolsNotificationNormal`、`NotificationToolsProgressNormal`、
@@ -294,7 +317,7 @@ LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results �
 sh tests/run.sh
 ```
 
-需要 `nvim` 和 `stylua`。测试隔离 Neovim 的 state/cache/data 目录，覆盖通知更新和过滤、历史边界、任务生命周期、fast-event、卸载、LSP token、分屏 detach、小窗口和 Unicode 布局，以及重复计数、片段高亮、来源分组、窗口复用和独立淡出。
+需要 `nvim` 和 `stylua`。测试隔离 Neovim 的 state/cache/data 目录，覆盖通知更新和过滤、历史边界、任务生命周期、fast-event、卸载、LSP token、分屏 detach、小窗口和 Unicode 布局，以及重复计数、片段高亮、来源分组、窗口复用和独立淡出。新增覆盖免打扰无补弹、过滤路由、历史筛选与锚定刷新、任务结果保留，以及阅读期间暂停/恢复超时和外部关窗清理。
 
 可选测试配置侧 Noice 适配器（使用本机已有 checkout）：
 
@@ -308,4 +331,5 @@ NOTIFICATION_TOOLS_NUI_ROOT=/path/to/nui.nvim sh tests/run.sh
 真实 TUI 验证脚本为 `tests/tui.lua`，运行方式：`nvim -n -u tests/tui.lua -i NONE`。
 它自动检查浮窗位置、屏幕文本、Insert 模式编辑和窗口复用，结果写入 `$NOTIFICATION_TOOLS_TUI_RESULT`（默认 `/private/tmp/notification-tools-tui.json`），检查结束后保留预览。
 可设置 `NOTIFICATION_TOOLS_THEME_ROOT=/path/to/catppuccin` 验证 Catppuccin Mocha 配色；设置 `NOTIFICATION_TOOLS_TUI_EXIT=1` 在验证后自动退出。
-`nvim -n -u tests/history_tui.lua -i NONE` 单独验证历史窗口的颜色、光标行展开和窗口选项恢复，使用同一组环境变量。
+`nvim -n -u tests/history_tui.lua -i NONE` 单独验证历史窗口的颜色、光标行展开和窗口选项恢复。
+`nvim -n -u tests/reading_tui.lua -i NONE` 验证完整内容阅读、暂停/恢复计时、原生筛选菜单及从历史回车阅读。两者使用同一组环境变量。

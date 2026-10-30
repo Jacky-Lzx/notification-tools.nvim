@@ -197,8 +197,11 @@ function M.notify(message, level, opts)
     count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
     time = os.time(),
     order = old and old.order or state.serial,
+    revision = state.serial,
     timeout = timeout,
-    expires = timeout > 0 and (now + timeout) or nil,
+    paused = old and old.paused or nil,
+    remaining = old and old.paused and timeout > 0 and timeout or nil,
+    expires = not (old and old.paused) and timeout > 0 and (now + timeout) or nil,
   }
   state.notices[id] = notice
   model.archive(state, notice)
@@ -254,15 +257,97 @@ function M.clear_history()
   state.history = {}
 end
 
+local function reading_zindex()
+  return math.max(state.config.notification.window.zindex, state.config.progress.window.zindex) + 1
+end
+
 function M.show_history(opts)
   ensure()
   opts = require("notification-tools.history").options(opts)
   local current = generation
   vim.schedule(function()
     if current == generation then
-      require("notification-tools.view").history(M.history, opts)
+      require("notification-tools.view").history(
+        M.history,
+        opts,
+        M.show_notification,
+        reading_zindex()
+      )
     end
   end)
+end
+
+local function find_notice(id)
+  if id ~= nil then
+    if state.notices[id] then
+      return state.notices[id]
+    end
+    for i = #state.history, 1, -1 do
+      if state.history[i].id == id then
+        return state.history[i]
+      end
+    end
+    return nil
+  end
+  local latest
+  local function consider(item)
+    if
+      item.kind ~= "task"
+      and (not latest or (item.revision or item.order) > (latest.revision or latest.order))
+    then
+      latest = item
+    end
+  end
+  for _, item in ipairs(state.history) do
+    consider(item)
+  end
+  for _, item in pairs(state.notices) do
+    consider(item)
+  end
+  return latest
+end
+
+---Read a complete notice; an active notice's remaining timeout pauses until closed.
+function M.show_notification(id)
+  ensure()
+  if id ~= nil then
+    valid_id(id)
+  end
+  local item = find_notice(id)
+  if not item then
+    return nil
+  end
+  local snapshot, owner, current = vim.deepcopy(item), state, generation
+  id = item.id
+  vim.schedule(function()
+    if current ~= generation then
+      return
+    end
+    local view = require("notification-tools.view")
+    view.close_history() -- resume the previous reader before pausing this one
+    local active = state.notices[id]
+    if active then
+      model.pause(active)
+    end
+    local function resume()
+      if state == owner and current == generation then
+        local notice = state.notices[id]
+        if notice then
+          model.resume(notice)
+        end
+        changed()
+      end
+    end
+    local ok, err = pcall(view.notification, function()
+      return { vim.deepcopy(find_notice(id) or snapshot) }
+    end, resume, reading_zindex())
+    if not ok then
+      resume()
+      error(err)
+    end
+    changed()
+  end)
+  return id
 end
 
 local function update_task(task, opts)
@@ -400,6 +485,7 @@ function M.teardown()
     "NotificationsDismiss",
     "NotificationsClear",
     "NotificationsDnd",
+    "NotificationsLatest",
     "NotificationToolsDemo",
   }) do
     pcall(vim.api.nvim_del_user_command, name)
@@ -454,6 +540,11 @@ function M.setup(opts)
     M.clear_history,
     { desc = "Clear notification history", force = true }
   )
+  vim.api.nvim_create_user_command("NotificationsLatest", function()
+    if not M.show_notification() then
+      vim.api.nvim_echo({ { "No notifications" } }, false, {})
+    end
+  end, { desc = "Read the latest notification", force = true })
   vim.api.nvim_create_user_command("NotificationsDnd", function(args)
     local value = args.args
     assert(

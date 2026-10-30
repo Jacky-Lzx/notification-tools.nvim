@@ -18,6 +18,17 @@ assert(not pcall(tools.notify, "bad", "invalid"))
 assert(not pcall(tools.notify, "bad", nil, { timeout = math.huge }))
 h.eq(nil, tools.notify("filtered", "debug"))
 h.eq(nil, tools.notify("off", vim.log.levels.OFF))
+-- Snapshot reads must also be safe before the history UI has ever been loaded.
+local fast_snapshot
+local snapshot_timer = vim.uv.new_timer()
+snapshot_timer:start(1, 0, function()
+  fast_snapshot = tools.history({ level = "warn" })
+  snapshot_timer:close()
+end)
+h.wait(function()
+  return fast_snapshot ~= nil
+end)
+h.eq({}, fast_snapshot)
 h.eq(0, #tools.history())
 local id = vim.notify("中文信息", nil, { title = "Build", timeout = 0 })
 h.eq(id, tools.notify("updated", "warn", { replace = id, timeout = 0 }))
