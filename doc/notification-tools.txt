@@ -45,7 +45,8 @@ content changes. Explicit IDs stay independent. Set notification.merge_duplicate
 to false to disable automatic merging. History includes the merged count.
 
 history() returns an independent oldest-first snapshot of notification records.
-show_history(opts?) opens a scrollable history window. clear_history() clears history.
+show_history(opts?) opens a scrollable history window, newest created/updated
+records first. The history() API remains oldest-first. clear_history() clears history.
 history(opts?) also accepts filters: level (minimum), source (exact match), title
 (case-insensitive literal substring). Conditions intersect; source defaults to
 the original notice title. These filters do not change the stored records.

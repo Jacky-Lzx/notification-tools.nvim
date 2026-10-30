@@ -111,7 +111,9 @@ local function redraw(s, preserve)
   local saved = preserve and api.nvim_win_call(s.win, vim.fn.winsaveview)
   local lines, marks, entries = {}, {}, {}
   local items = M.filter(s.provider(), s.filters)
-  for _, item in ipairs(items) do
+  -- Providers keep the public oldest-first snapshot; only the UI reverses it.
+  for index = #items, 1, -1 do
+    local item = items[index]
     local row, header = #lines, ""
     for _, chunk in ipairs({
       { os.date("%H:%M:%S", item.time), "Meta" },

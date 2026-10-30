@@ -35,7 +35,7 @@ require("notification-tools").setup()
 
 ## 历史筛选与阅读
 
-`:Notifications` 打开历史；也支持 `:Notifications level=warn source=lua_ls`。
+`:Notifications` 打开历史，最新创建或更新的消息显示在顶部；也支持 `:Notifications level=warn source=lua_ls`。
 窗口内仍可用原生 `/` 搜索、`y` 复制原始 Markdown，光标行显示原文，其他行 conceal。
 
 | 按键 | 功能 |

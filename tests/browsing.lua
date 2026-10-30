@@ -27,13 +27,17 @@ end
 local function text()
   return table.concat(lines(), "\n")
 end
+h.eq("failed", lines()[2])
+h.eq("warning", lines()[5])
+h.eq("one", lines()[8])
+h.eq("one\n**two**", tools.history()[1].message) -- API remains oldest first
 key("]n")
-h.eq(5, vim.api.nvim_win_get_cursor(win)[1])
+h.eq(4, vim.api.nvim_win_get_cursor(win)[1])
 key("]n")
-h.eq(8, vim.api.nvim_win_get_cursor(win)[1])
+h.eq(7, vim.api.nvim_win_get_cursor(win)[1])
 key("[n")
-h.eq(5, vim.api.nvim_win_get_cursor(win)[1])
-vim.api.nvim_win_set_cursor(win, { 6, 3 }) -- body of b
+h.eq(4, vim.api.nvim_win_get_cursor(win)[1])
+vim.api.nvim_win_set_cursor(win, { 5, 3 }) -- body of b
 -- Updating an earlier notice reorders history. Preserve b and its row/column offset.
 tools.notify("updated first", nil, { id = a })
 tools.notify("new entry", "error", { title = "Later" })
@@ -41,7 +45,10 @@ assert(not text():find("new entry", 1, true), "history is refreshed explicitly")
 key("r")
 h.eq(buf, vim.api.nvim_get_current_buf())
 h.eq(win, vim.api.nvim_get_current_win())
-h.eq({ 2, 3 }, vim.api.nvim_win_get_cursor(win))
+h.eq({ 11, 3 }, vim.api.nvim_win_get_cursor(win))
+h.eq("new entry", lines()[2])
+h.eq("updated first", lines()[5])
+h.eq("warning", lines()[11])
 assert(text():find("new entry", 1, true))
 assert(text():find("[compiler]", 1, true))
 assert(not vim.bo[buf].modifiable)

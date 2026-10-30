@@ -67,9 +67,10 @@ h.eq("c", vim.wo[win].concealcursor)
 h.eq(conceallevel, vim.wo[original_win].conceallevel)
 h.eq(concealcursor, vim.wo[original_win].concealcursor)
 local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-h.eq(raw, lines[2])
-h.eq(details, lines[3])
-vim.api.nvim_win_set_cursor(win, { 2, 0 })
+h.eq("literal **stars**", lines[2])
+h.eq(raw, lines[5])
+h.eq(details, lines[6])
+vim.api.nvim_win_set_cursor(win, { 5, 0 })
 vim.api.nvim_feedkeys("yy", "xt", false)
 h.eq(raw .. "\n", vim.fn.getreg('"'))
 local highlighted, concealed = {}, {}
@@ -79,7 +80,7 @@ for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = 
   if d.conceal == "" then
     concealed[#concealed + 1] = mark
   end
-  if mark[2] == 5 then
+  if mark[2] == 1 then
     assert(d.conceal == nil, "per-notice opt-out must stay literal")
   end
 end
