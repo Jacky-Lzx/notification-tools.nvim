@@ -197,6 +197,12 @@ function M.notify(message, level, opts)
     count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
     time = os.time(),
     order = old and old.order or state.serial,
+    content_revision = old
+        and old.message == message_text
+        and old.details == details
+        and old.markdown == markdown
+        and old.content_revision
+      or state.serial,
     revision = state.serial,
     timeout = timeout,
     paused = old and old.paused or nil,

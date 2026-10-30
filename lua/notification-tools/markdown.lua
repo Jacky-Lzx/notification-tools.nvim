@@ -1,6 +1,7 @@
 -- A small inline renderer for notifications, not a full Markdown document engine.
 -- Keep source text in the model; chunks contain only the visible text and styles.
 local M = {}
+local text = require("notification-tools.text")
 
 local function push(chunks, text, group, style)
   if text == "" then
@@ -374,7 +375,7 @@ function M.wrap(chunks, width, limit)
     return limit and #lines >= limit
   end
   for _, chunk in ipairs(chunks) do
-    for _, char in ipairs(vim.fn.split(chunk[1], "\\zs")) do
+    for char in text.chars(chunk[1]) do
       if char == "\n" then
         if flush() then
           return lines

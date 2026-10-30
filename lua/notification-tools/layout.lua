@@ -1,38 +1,41 @@
 local M = {}
 local model = require("notification-tools.state")
 local markdown = require("notification-tools.markdown")
+local text = require("notification-tools.text")
 local text_cache = setmetatable({}, { __mode = "k" })
+local shared_cache = setmetatable({}, { __mode = "k" })
+local plans = setmetatable({}, { __mode = "k" })
 
-function M.clean(text)
-  return tostring(text or ""):gsub("\t", "  "):gsub("[%z\1-\8\11-\31\127]", "")
-end
+M.clean = text.clean
 
 local function inline(text)
   return M.clean(text):gsub("\n", " ")
 end
 
-function M.wrap(text, width, limit)
-  local lines = {}
-  for _, source in ipairs(vim.split(M.clean(text), "\n", { plain = true })) do
-    local line = ""
-    for _, char in ipairs(vim.fn.split(source, "\\zs")) do
+function M.wrap(value, width, limit)
+  local lines, line = {}, ""
+  for char in text.chars(M.clean(value)) do
+    if char == "\n" then
+      lines[#lines + 1], line = line, ""
+      if limit and #lines >= limit then
+        return lines
+      end
+    else
       if vim.fn.strdisplaywidth(line .. char) > width then
         if line ~= "" then
-          lines[#lines + 1] = line
+          lines[#lines + 1], line = line, ""
           if limit and #lines >= limit then
             return lines
           end
         end
-        line = vim.fn.strdisplaywidth(char) <= width and char or "?"
-      else
-        line = line .. char
+        if vim.fn.strdisplaywidth(char) > width then
+          char = "?"
+        end
       end
-    end
-    lines[#lines + 1] = line
-    if limit and #lines >= limit then
-      return lines
+      line = line .. char
     end
   end
+  lines[#lines + 1] = line
   return lines
 end
 
@@ -109,7 +112,12 @@ local function formatted(notice, config)
   if enabled == nil then
     enabled = config.notification.markdown
   end
-  local cached = text_cache[notice]
+  local shared = shared_cache[config]
+  if not shared then
+    shared = { entries = {}, order = {} }
+    shared_cache[config] = shared
+  end
+  local cached = text_cache[notice] or shared.entries[notice.content_revision]
   if
     not cached
     or cached.message ~= notice.message
@@ -122,13 +130,21 @@ local function formatted(notice, config)
       details = notice.details,
       body = markdown.parse(M.clean(notice.message), "Body", enabled),
       extra = markdown.parse(M.clean(notice.details), "Meta", enabled),
+      widths = {},
     }
-    text_cache[notice] = cached
+    if notice.content_revision then
+      shared.entries[notice.content_revision] = cached
+      shared.order[#shared.order + 1] = notice.content_revision
+      while #shared.order > config.max_pending do
+        shared.entries[table.remove(shared.order, 1)] = nil
+      end
+    end
   end
+  text_cache[notice] = cached
   return cached
 end
 
-function M.notification(notice, config, maximum, height, minimum)
+local function notification(notice, config, maximum, height, minimum)
   if maximum < 4 or height < 2 then
     return nil
   end
@@ -141,11 +157,13 @@ function M.notification(notice, config, maximum, height, minimum)
   local meta = (notice.count or 1) > 1 and ("×" .. notice.count)
     or (config.notification.timestamp and os.date("%H:%M", notice.time) or "")
   local natural = cells(icon .. " " .. title) + (meta ~= "" and cells(meta) + 2 or 0)
-  for _, text in ipairs({ markdown.text(content.body), markdown.text(content.extra) }) do
-    for _, line in ipairs(vim.split(M.clean(text), "\n", { plain = true })) do
-      natural = math.max(natural, cells(line) + indent_width)
-    end
+  local cap = math.max(0, math.min(maximum, c.max_width) - c.padding.horizontal * 2 - indent_width)
+  local metric = text.metrics()
+  local key = metric .. ":" .. cap
+  if not content.widths[key] then
+    content.widths[key] = math.max(text.width(content.body, cap), text.width(content.extra, cap))
   end
+  natural = math.max(natural, content.widths[key] + indent_width)
   local width = width_for(c, maximum, minimum, natural + c.padding.horizontal * 2)
   local px, py = padding(c, width, height, 2)
   local inner = width - px * 2
@@ -205,6 +223,31 @@ function M.notification(notice, config, maximum, height, minimum)
     end
   end
   return result
+end
+
+function M.notification(notice, config, maximum, height, minimum)
+  local key = {
+    config,
+    maximum,
+    height,
+    minimum or 0,
+    text.metrics(),
+    notice.message,
+    notice.details,
+    notice.title,
+    notice.level,
+    notice.icon or false,
+    notice.markdown,
+    notice.count or 1,
+    notice.time,
+  }
+  local cached = plans[notice]
+  if cached and vim.deep_equal(cached.key, key) then
+    return cached.plan
+  end
+  local plan = notification(notice, config, maximum, height, minimum)
+  plans[notice] = { key = key, plan = plan }
+  return plan
 end
 
 local function status(task)
