@@ -24,7 +24,7 @@ M.defaults = {
     merge_duplicates = true,
     timestamp = true,
     fade_out = 180,
-    window = { padding = { horizontal = 2, vertical = 1 } },
+    window = { padding = { horizontal = 2, vertical = 0 } },
   },
   progress = {
     enabled = true,
@@ -35,7 +35,7 @@ M.defaults = {
     group_by_source = true,
     show_elapsed = true,
     fade_out = 240,
-    window = { border = "none", min_width = 24, max_width = 44, max_height = 12 },
+    window = { min_width = 24, max_width = 44, max_height = 12 },
     avoid = { "NvimTree", "TestExplorer" },
     spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
   },

@@ -145,7 +145,7 @@ require("notification-tools").setup({
     timestamp = true, -- 标题右侧显示时间；重复时显示 ×N
     fade_out = 180, -- 在现有 timeout 的最后 180ms 淡出；0 关闭
     window = {
-      padding = { horizontal = 2, vertical = 1 },
+      padding = { horizontal = 2, vertical = 0 },
     },
   },
   progress = {
@@ -158,7 +158,7 @@ require("notification-tools").setup({
     show_elapsed = true, -- 没有 percentage 时显示耗时
     fade_out = 240, -- 在 done_ttl 的最后 240ms 淡出；0 关闭
     window = {
-      border = "none",
+      border = "rounded",
       min_width = 24,
       max_width = 44,
       max_height = 12, -- 面板总内容行数，包含来源、消息和溢出提示
@@ -171,7 +171,7 @@ require("notification-tools").setup({
 })
 ```
 
-`window` 是公共样式默认值，`notification.window` 与 `progress.window` 分别覆盖它；原有公共配置仍然可用。默认通知保留圆角边框，任务面板无边框。
+`window` 是公共样式默认值，`notification.window` 与 `progress.window` 分别覆盖它；原有公共配置仍然可用。默认通知和任务面板均使用圆角边框，通知内部不留上下空行。
 两种窗口可分别设置边框、宽度、透明度、留白和边距。`padding` 单位是字符单元/行。通知的 `max_height` 限制正文和附加信息总行数；任务的 `max_height` 限制面板总行数。
 
 通知与任务同时存在时，任务最多占用下半部分，通知使用余下空间。小窗口中先省略任务的空行、附加消息和来源标题，再限制可见任务数；记录仍可通过历史或任务 API 获取。

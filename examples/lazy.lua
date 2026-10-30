@@ -8,9 +8,9 @@ return {
     priority = 1100,
     opts = {
       window = { border = "rounded", winblend = 0 },
-      notification = { window = { padding = { horizontal = 2, vertical = 1 } } },
+      notification = { window = { padding = { horizontal = 2, vertical = 0 } } },
       progress = {
-        window = { border = "none", max_width = 44 },
+        window = { border = "rounded", max_width = 44 },
         avoid = { "NvimTree", "TestExplorer" },
       },
     },

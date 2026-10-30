@@ -24,7 +24,7 @@ local resolved = config.resolve({
   progress = { window = { max_width = 40 } },
 })
 h.eq("double", resolved.notification.window.border)
-h.eq("none", resolved.progress.window.border)
+h.eq("double", resolved.progress.window.border)
 h.eq(35, resolved.notification.window.max_width)
 h.eq(40, resolved.progress.window.max_width)
 h.eq(8, resolved.progress.window.winblend)
@@ -46,6 +46,10 @@ h.wait(function()
   return #h.floats() == 2
 end)
 local one, two = notice("Document generated"), notice("Second notification")
+assert(
+  one.lines[1]:find("%S") and one.lines[#one.lines]:find("%S"),
+  "notifications must have no vertical padding"
+)
 assert(
   one and two and one.config.row < two.config.row,
   "new notifications must append in creation order"
@@ -102,7 +106,7 @@ h.wait(function()
   return notice("Index") ~= nil
 end)
 local panel = notice("Index")
-assert(not panel.config.border or panel.config.border == "none" or #panel.config.border == 0)
+assert(panel.config.border and panel.config.border ~= "none" and #panel.config.border > 0)
 assert(panel.config.width < 60)
 local text = table.concat(panel.lines, "\n")
 local _, count = text:gsub("lua_ls", "")

@@ -79,8 +79,8 @@ window.gap=1             Space between notices / between the two areas.
 notification.merge_duplicates=true  Merge identical active notices.
 notification.timestamp=true         Time in the header; replaced by repeat count.
 notification.fade_out=180            Fade during the final timeout milliseconds.
-notification.window      Inherits window, with horizontal padding=2, vertical=1.
-progress.window          Inherits window, with border="none", min_width=24,
+notification.window      Inherits window, with horizontal padding=2, vertical=0.
+progress.window          Inherits window (rounded border), with min_width=24,
                         max_width=44, max_height=12 and horizontal padding=1,
                         vertical=0. max_height includes headers and details.
 *.window.padding         { horizontal = cells, vertical = lines }.
