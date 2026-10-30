@@ -243,9 +243,9 @@ function M.dismiss(id)
 end
 
 ---Return an independent, oldest-first snapshot.
-function M.history()
+function M.history(opts)
   ensure()
-  return vim.deepcopy(state.history)
+  return require("notification-tools.history").filter(vim.deepcopy(state.history), opts)
 end
 
 function M.clear_history()
@@ -253,12 +253,13 @@ function M.clear_history()
   state.history = {}
 end
 
-function M.show_history()
+function M.show_history(opts)
   ensure()
+  opts = require("notification-tools.history").options(opts)
   local current = generation
   vim.schedule(function()
     if current == generation then
-      require("notification-tools.view").history(M.history())
+      require("notification-tools.view").history(M.history, opts)
     end
   end)
 end
@@ -423,11 +424,25 @@ function M.setup(opts)
   })
   vim.api.nvim_create_autocmd("VimLeavePre", { group = group, callback = M.teardown })
   require("notification-tools.integrations").setup(M, resolved, group)
-  vim.api.nvim_create_user_command(
-    "Notifications",
-    M.show_history,
-    { desc = "Notification history", force = true }
-  )
+  vim.api.nvim_create_user_command("Notifications", function(args)
+    local opts = {}
+    for _, arg in ipairs(args.fargs) do
+      local key, value = arg:match("^(%a+)=(.+)$")
+      assert(
+        key == "level" or key == "source" or key == "title",
+        "expected level=, source= or title="
+      )
+      opts[key] = value
+    end
+    M.show_history(opts)
+  end, {
+    desc = "Notification history",
+    force = true,
+    nargs = "*",
+    complete = function()
+      return { "level=", "source=", "title=" }
+    end,
+  })
   vim.api.nvim_create_user_command("NotificationsDismiss", function()
     M.dismiss()
   end, { desc = "Dismiss visible notifications", force = true })

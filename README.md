@@ -33,6 +33,31 @@ require("notification-tools").setup()
 `:NotificationToolsDemo` 预览两个区域，`:checkhealth notification-tools` 检查环境。
 仅 `require()` 不会接管通知；第一次调用 API 会使用默认配置初始化，建议先显式 `setup()`。
 
+## 历史筛选与阅读
+
+`:Notifications` 打开历史；也支持 `:Notifications level=warn source=lua_ls`。
+窗口内仍可用原生 `/` 搜索、`y` 复制原始 Markdown，光标行显示原文，其他行 conceal。
+
+| 按键 | 功能 |
+| --- | --- |
+| `]n` / `[n` | 下一条 / 上一条通知 |
+| `gl` | 按最低等级筛选 |
+| `gs` | 按来源精确筛选 |
+| `gt` | 按标题子串筛选（不区分大小写） |
+| `r` | 读取最新历史，按通知 ID 保留光标和阅读位置 |
+| `R` | 清除所有筛选条件并刷新 |
+| `q` / `<Esc>` | 关闭 |
+
+筛选条件显示在窗口标题中。刷新使用原窗口和缓冲区，不会在新通知到来时自动打断阅读。
+
+```lua
+local tools = require("notification-tools")
+local errors = tools.history({ level = "error" }) -- 独立快照，不改变完整历史
+tools.show_history({ level = "warn", source = "compiler", title = "Build" })
+```
+
+等级、来源和标题条件取交集；来源默认使用通知标题。标题或来源包含空格时建议使用 Lua API。
+
 ## 免打扰与过滤
 
 `:NotificationsDnd [on|off|toggle]` 切换免打扰（不带参数时切换）。

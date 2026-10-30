@@ -45,7 +45,17 @@ content changes. Explicit IDs stay independent. Set notification.merge_duplicate
 to false to disable automatic merging. History includes the merged count.
 
 history() returns an independent oldest-first snapshot of notification records.
-show_history() opens a scrollable history window. clear_history() clears history.
+show_history(opts?) opens a scrollable history window. clear_history() clears history.
+history(opts?) also accepts filters: level (minimum), source (exact match), title
+(case-insensitive literal substring). Conditions intersect; source defaults to
+the original notice title. These filters do not change the stored records.
+:Notifications [level=warn] [source=lua_ls] [title=Build] accepts the same filters.
+Use the Lua API for source/title values containing spaces.
+History keys: ]n/[n next/previous notice; gl minimum level; gs source; gt title;
+r refresh; R reset filters and refresh; q/Escape close. Prompts use vim.ui.
+Refresh retains the window/buffer and anchors the cursor to the selected notice
+ID and line offset when it is still available. New notices do not auto-refresh.
+Active filters and the visible record count appear in the window title.
 dismiss() closes all ordinary notifications, preserving history and tasks.
 
 ROUTING                                        *notification-tools-routing*
