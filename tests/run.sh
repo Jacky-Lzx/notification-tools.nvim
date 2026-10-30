@@ -16,4 +16,4 @@ fi
 if [ -n "${NOTIFICATION_TOOLS_LAZY_ROOT:-}" ]; then
   nvim --headless -n -u NONE -i NONE --noplugin -l tests/lazy.lua
 fi
-stylua --check lua tests examples
+stylua --check lua tests examples scripts

@@ -12,7 +12,7 @@ local tools = require("notification-tools")
 tools.setup({ timeout = 0 })
 local original_win = vim.api.nvim_get_current_win()
 local original_conceal, original_cursor = vim.wo.conceallevel, vim.wo.concealcursor
-local raw = "Enabled **Inlay Hints**; _中文_ and `code` [guide](https://example.com)"
+local raw = "Enabled **Inlay Hints**; _Unicode_ and `code` [guide](https://example.com)"
 local history_buf, snapshots, failed = nil, {}, false
 local function screen()
   vim.cmd.redraw()
@@ -49,7 +49,7 @@ local function later(delay, callback)
 end
 later(150, function()
   assert(#vim.api.nvim_list_uis() > 0)
-  tools.notify(raw, "warn", { title = "Hints", details = "Details: **已启用**" })
+  tools.notify(raw, "warn", { title = "Hints", details = "Details: **enabled**" })
   tools.notify("An error message", "error", { title = "Build" })
   tools.dismiss()
   tools.show_history()
@@ -96,7 +96,7 @@ later(600, function()
   assert(snapshots.cursor_line:find("**Inlay Hints**", 1, true))
   assert(snapshots.cursor_line:find("https://example.com", 1, true))
   assert(
-    not snapshots.cursor_line:find("**已启用**", 1, true),
+    not snapshots.cursor_line:find("**enabled**", 1, true),
     "other lines must remain concealed"
   )
   vim.api.nvim_win_set_cursor(0, { 6, 0 })
@@ -108,7 +108,7 @@ later(800, function()
     not snapshots.cursor_moved:find("**Inlay Hints**", 1, true),
     "the previous cursor line must conceal again"
   )
-  assert(snapshots.cursor_moved:find("**已启用**", 1, true))
+  assert(snapshots.cursor_moved:find("**enabled**", 1, true))
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
 end)
 later(1000, function()

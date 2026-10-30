@@ -73,14 +73,14 @@ later(150, function()
   notice = tools.notify(
     "Enabled **Inlay Hints**",
     "info",
-    { title = "Inlay Hints", details = "中文：**已启用** · `main.pdf`" }
+    { title = "Inlay Hints", details = "Status: **enabled** · `main.pdf`" }
   )
   assert(
     notice
       == tools.notify(
         "Enabled **Inlay Hints**",
         "info",
-        { title = "Inlay Hints", details = "中文：**已启用** · `main.pdf`" }
+        { title = "Inlay Hints", details = "Status: **enabled** · `main.pdf`" }
       )
   )
   tools.notify("One warning from the language server", "warn", { title = "LSP" })

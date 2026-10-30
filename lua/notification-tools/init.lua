@@ -584,7 +584,7 @@ end
 function M.demo()
   ensure()
   for _ = 1, 2 do
-    M.notify("文档编译完成", "info", { title = "texquill", details = "main.pdf · 12 pages" })
+    M.notify("Document compiled", "info", { title = "texquill", details = "main.pdf · 12 pages" })
   end
   M.notify("Workspace library is incomplete", "warn", { title = "lua_ls" })
   local task = M.progress({ title = "Indexing workspace", source = "lua_ls", percentage = 0 })
