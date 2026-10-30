@@ -5,53 +5,60 @@ local model = require("notification-tools.state")
 local config = require("notification-tools.config")
 h.eq({ "中文", "通知" }, view.wrap("中文通知", 4))
 h.eq({ "ab", "cd", "", "e" }, view.wrap("abcd\n\ne", 2))
-for _, border in ipairs({ "rounded", "none", "double", "solid", "single", "" }) do
-  for _, size in ipairs({ { 120, 40 }, { 80, 24 }, { 32, 14 }, { 12, 8 }, { 8, 6 } }) do
-    vim.o.columns, vim.o.lines = size[1], size[2]
-    vim.o.showtabline = 2
-    tools.setup({
-      notify = false,
-      timeout = 0,
-      window = { border = border },
-      progress = { stale_timeout = 0 },
-    })
-    local original_buf = vim.api.nvim_get_current_buf()
-    local original_win = vim.api.nvim_get_current_win()
-    for i = 1, 8 do
-      tools.notify(
-        string.rep("中文 🦀 é 很长的信息\n", 12),
-        "warn",
-        { title = "通知 " .. i }
-      )
-      tools.progress({ title = "Task " .. i, source = "lua_ls", percentage = 25 })
-    end
-    vim.wait(35, function()
-      return false
-    end, 5)
-    h.eq(original_buf, vim.api.nvim_get_current_buf())
-    h.eq(original_win, vim.api.nvim_get_current_win())
-    local boxes = {}
-    for _, entry in ipairs(h.floats()) do
-      local c = entry.config
-      local margin = (border == "none" or border == "") and 0 or 2
-      assert(c.row >= 1 and c.col >= 0)
-      assert(c.col + c.width + margin <= vim.o.columns)
-      assert(c.row + c.height + margin <= vim.o.lines - vim.o.cmdheight)
-      assert(not c.focusable)
-      for _, line in ipairs(entry.lines) do
-        assert(vim.fn.strdisplaywidth(line) <= c.width)
+for _, ambiwidth in ipairs({ "single", "double" }) do
+  vim.o.ambiwidth = ambiwidth
+  for _, border in ipairs({ "rounded", "none", "double", "solid", "single", "" }) do
+    for _, size in ipairs({ { 120, 40 }, { 80, 24 }, { 32, 14 }, { 12, 8 }, { 8, 6 } }) do
+      vim.o.columns, vim.o.lines = size[1], size[2]
+      vim.o.showtabline = 2
+      tools.setup({
+        notify = false,
+        timeout = 0,
+        window = { border = border },
+        progress = { stale_timeout = 0 },
+      })
+      local original_buf = vim.api.nvim_get_current_buf()
+      local original_win = vim.api.nvim_get_current_win()
+      for i = 1, 8 do
+        tools.notify(
+          string.rep("中文 🦀 é 很长的信息\n", 12),
+          "warn",
+          { title = "通知 " .. i }
+        )
+        tools.progress({ title = "Task " .. i, source = "lua_ls", percentage = 25 })
       end
-      boxes[#boxes + 1] = { c.row, c.row + c.height + margin }
+      vim.wait(35, function()
+        return false
+      end, 5)
+      h.eq(original_buf, vim.api.nvim_get_current_buf())
+      h.eq(original_win, vim.api.nvim_get_current_win())
+      local boxes = {}
+      for _, entry in ipairs(h.floats()) do
+        local c = entry.config
+        local margin = (not c.border or c.border == "none" or #c.border == 0) and 0 or 2
+        assert(c.row >= 1 and c.col >= 0)
+        assert(
+          c.col + c.width + margin <= vim.o.columns,
+          vim.inspect({ config = c, columns = vim.o.columns })
+        )
+        assert(c.row + c.height + margin <= vim.o.lines - vim.o.cmdheight)
+        assert(not c.focusable)
+        for _, line in ipairs(entry.lines) do
+          assert(vim.fn.strdisplaywidth(line) <= c.width)
+        end
+        boxes[#boxes + 1] = { c.row, c.row + c.height + margin }
+      end
+      table.sort(boxes, function(a, b)
+        return a[1] < b[1]
+      end)
+      for i = 2, #boxes do
+        assert(boxes[i][1] >= boxes[i - 1][2], "notification and progress windows overlap")
+      end
+      tools.teardown()
     end
-    table.sort(boxes, function(a, b)
-      return a[1] < b[1]
-    end)
-    for i = 2, #boxes do
-      assert(boxes[i][1] >= boxes[i - 1][2], "notification and progress windows overlap")
-    end
-    tools.teardown()
   end
 end
+vim.o.ambiwidth = "single"
 
 vim.o.columns, vim.o.lines, vim.o.showtabline = 120, 40, 1
 tools.setup({ notify = false, timeout = 0 })

@@ -28,12 +28,27 @@ function M.archive(state, notice)
   end
 end
 
-function M.sorted(items)
+function M.sorted(items, oldest_first)
   local result = vim.tbl_values(items)
   table.sort(result, function(a, b)
+    if oldest_first then
+      return a.order < b.order
+    end
     return a.order > b.order
   end)
   return result
+end
+
+-- Fade within the existing lifetime; expiration and API snapshots are unchanged.
+function M.opacity(item, duration, now)
+  if not item or not item.expires or duration == 0 then
+    return 1
+  end
+  duration = math.min(duration, item.timeout or item.lifetime or duration)
+  if duration <= 0 then
+    return 1
+  end
+  return math.max(0, math.min(1, (item.expires - (now or M.now())) / duration))
 end
 
 function M.expire(state)
@@ -49,9 +64,11 @@ function M.expire(state)
     elseif not task.done and state.config.progress.stale_timeout > 0 then
       if now - task.updated >= state.config.progress.stale_timeout then
         task.done = true
+        task.finished = now
         task.status = "error"
         task.message = "Timed out"
         task.expires = now + state.config.progress.done_ttl
+        task.lifetime = state.config.progress.done_ttl
       end
     end
   end

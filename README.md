@@ -2,8 +2,8 @@
 
 轻量、无外部依赖的 Neovim 通知与任务状态插件，要求 Neovim **0.10+**。
 
-- 右上角：带标题和级别颜色的通知，可更新、定时消失或固定显示。
-- 右下角：持续旋转的任务状态、进度百分比、来源，以及完成/失败/取消结果。
+- 右上角：有留白和级别色条的通知，标题/正文/附加信息分别高亮，重复内容合并计数。
+- 右下角：紧凑的任务面板，按来源分组、右对齐百分比或耗时，长消息单独成行。
 - 通用任务 API：由调用方管理自己的事件和任务句柄，插件不监听其他业务插件的事件。
 - 可选 LSP work-done progress 接入，区分客户端和 token 类型，不替换 LSP handler。
 - 通知历史、中文与多行文本、自适应宽度、小窗口布局、主题切换和安全卸载。
@@ -41,6 +41,7 @@ local tools = require("notification-tools")
 vim.notify("PDF 已生成", vim.log.levels.INFO, { title = "texquill" })
 local id = tools.notify("正在连接…", "info", {
   title = "Connection",
+  details = "api.example.com", -- 可选，次要信息使用较弱的高亮
   timeout = 0, -- 固定显示；其他非负数为毫秒
 })
 tools.notify("已连接", "info", { id = id, title = "Connection", timeout = 1500 })
@@ -50,9 +51,13 @@ tools.dismiss() -- 关闭所有普通通知，保留任务和历史
 
 `notify(message, level?, opts?)` 返回字符串/数字 ID；被级别过滤时返回 `nil`。
 级别接受 `vim.log.levels` 数值或不区分大小写的 `trace/debug/info/warn/error/off`。
-`opts` 支持 `id`、`replace`（ID 或 `{ id = ... }`）、`title`、`icon` 和 `timeout`。
+`opts` 支持 `id`、`replace`（ID 或 `{ id = ... }`）、`title`、`icon`、`details` 和 `timeout`。
 相同 ID 更新通知，并在历史中保留最新版本；表类型消息使用 `vim.inspect`。
 `timeout` 从调用时开始计时，超出屏幕显示数量的通知仍会记录到历史中。
+
+不传 `id/replace` 时，相同标题、正文、附加信息、级别、图标和超时设置的活动通知会合并为一条，返回相同 ID，显示 `×N` 并重置消失时间。历史保留一条带 `count` 的最新记录。
+显式 ID 始终独立；显式更新不会增加计数，内容改变时计数归一。
+设置 `notification.merge_duplicates = false` 可关闭自动合并。
 
 `tools.history()` 返回按时间从旧到新排列的独立快照；`tools.clear_history()` 清空历史。
 历史只保存在当前会话内，任务结果不写入通知历史。
@@ -133,6 +138,15 @@ require("notification-tools").setup({
     max_height = 8, -- 每条通知的正文最大行数，完整内容仍在历史中
     top = 1, right = 1, bottom = 1,
     zindex = 150,
+    gap = 1,
+  },
+  notification = {
+    merge_duplicates = true,
+    timestamp = true, -- 标题右侧显示时间；重复时显示 ×N
+    fade_out = 180, -- 在现有 timeout 的最后 180ms 淡出；0 关闭
+    window = {
+      padding = { horizontal = 2, vertical = 1 },
+    },
   },
   progress = {
     enabled = true, -- 仅控制显示，任务 API 仍可使用
@@ -140,6 +154,16 @@ require("notification-tools").setup({
     done_ttl = 1500,
     stale_timeout = 120000,
     interval = 80,
+    group_by_source = true,
+    show_elapsed = true, -- 没有 percentage 时显示耗时
+    fade_out = 240, -- 在 done_ttl 的最后 240ms 淡出；0 关闭
+    window = {
+      border = "none",
+      min_width = 24,
+      max_width = 44,
+      max_height = 12, -- 面板总内容行数，包含来源、消息和溢出提示
+      padding = { horizontal = 1, vertical = 0 },
+    },
     avoid = { "NvimTree", "TestExplorer" }, -- 当前窗口为这些 filetype 时隐藏任务
     spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
   },
@@ -147,7 +171,14 @@ require("notification-tools").setup({
 })
 ```
 
-通知与任务同时存在时，任务最多占用下半部分，通知使用余下空间。小窗口中隐藏放不下的条目；内容仍可通过历史或任务 API 获取。
+`window` 是公共样式默认值，`notification.window` 与 `progress.window` 分别覆盖它；原有公共配置仍然可用。默认通知保留圆角边框，任务面板无边框。
+两种窗口可分别设置边框、宽度、透明度、留白和边距。`padding` 单位是字符单元/行。通知的 `max_height` 限制正文和附加信息总行数；任务的 `max_height` 限制面板总行数。
+
+通知与任务同时存在时，任务最多占用下半部分，通知使用余下空间。小窗口中先省略任务的空行、附加消息和来源标题，再限制可见任务数；记录仍可通过历史或任务 API 获取。
+通知按创建顺序向下叠放，更新不会改变所在顺序；放不下时优先保留较新的通知。任务按来源首次出现的顺序分组，组内保持创建顺序。`progress.max_items` 限制任务数。
+窗口宽度按内容测量，同一浮窗存在期间只扩不缩，屏幕变小时仍会收缩；浮窗关闭后重新测量，减少更新时的跳动。
+
+完成/失败/取消任务在保留时间末尾独立淡出，同组的活动任务保持正常。淡出不会延长 `timeout/done_ttl`，固定通知不会淡出；真实颜色过渡取决于终端的 true-color 支持。
 LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results 不显示。
 中途加载时会从后续 report 创建任务，但不会读取和消耗客户端的历史进度队列。
 
@@ -161,8 +192,10 @@ LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results �
 - `:NotificationsClear`：清空历史。
 - `:NotificationToolsDemo`：预览通知和进度。
 
-高亮组：`NotificationToolsNormal`、`NotificationToolsBorder`、`NotificationToolsTitle`、
-`NotificationToolsERROR/WARN/INFO/DEBUG/TRACE`、`NotificationToolsProgress`、`NotificationToolsDone`。
+高亮组：`NotificationToolsNormal`、`NotificationToolsNotificationNormal`、`NotificationToolsProgressNormal`、
+`NotificationToolsBorder`、`NotificationToolsTitle`、`NotificationToolsBody`、`NotificationToolsTaskTitle`、
+`NotificationToolsMeta`、`NotificationToolsSource`、`NotificationToolsERROR/WARN/INFO/DEBUG/TRACE`、
+`NotificationToolsProgress`、`NotificationToolsDone`、`NotificationToolsCancelled`。
 默认链接到主题的 `NormalFloat/FloatBorder/Diagnostic*` 等高亮；使用 `nvim_set_hl` 可覆盖，切换主题后重新设置默认链接。
 
 ## 验证
@@ -171,7 +204,7 @@ LSP 采用 Neovim 的 `LspProgress` 事件；非 work-done 的 partial results �
 sh tests/run.sh
 ```
 
-需要 `nvim` 和 `stylua`。测试隔离 Neovim 的 state/cache/data 目录，覆盖通知更新和过滤、历史边界、任务生命周期、fast-event、卸载、LSP token、分屏 detach、小窗口和 Unicode 布局。
+需要 `nvim` 和 `stylua`。测试隔离 Neovim 的 state/cache/data 目录，覆盖通知更新和过滤、历史边界、任务生命周期、fast-event、卸载、LSP token、分屏 detach、小窗口和 Unicode 布局，以及重复计数、片段高亮、来源分组、窗口复用和独立淡出。
 
 可选测试配置侧 Noice 适配器（使用本机已有 checkout）：
 

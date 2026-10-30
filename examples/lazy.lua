@@ -8,7 +8,11 @@ return {
     priority = 1100,
     opts = {
       window = { border = "rounded", winblend = 0 },
-      progress = { avoid = { "NvimTree", "TestExplorer" } },
+      notification = { window = { padding = { horizontal = 2, vertical = 1 } } },
+      progress = {
+        window = { border = "none", max_width = 44 },
+        avoid = { "NvimTree", "TestExplorer" },
+      },
     },
     keys = {
       { "<leader>sn", "<Cmd>Notifications<CR>", desc = "[Notifications] History" },

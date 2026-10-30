@@ -17,6 +17,14 @@ M.defaults = {
     right = 1,
     bottom = 1,
     zindex = 150,
+    gap = 1,
+    padding = { horizontal = 1, vertical = 0 },
+  },
+  notification = {
+    merge_duplicates = true,
+    timestamp = true,
+    fade_out = 180,
+    window = { padding = { horizontal = 2, vertical = 1 } },
   },
   progress = {
     enabled = true,
@@ -24,6 +32,10 @@ M.defaults = {
     done_ttl = 1500,
     stale_timeout = 120000,
     interval = 80,
+    group_by_source = true,
+    show_elapsed = true,
+    fade_out = 240,
+    window = { border = "none", min_width = 24, max_width = 44, max_height = 12 },
     avoid = { "NvimTree", "TestExplorer" },
     spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
   },
@@ -44,10 +56,17 @@ end
 
 function M.resolve(opts)
   local config = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
+  for _, section in ipairs({ "notification", "progress" }) do
+    config[section].window = vim.tbl_deep_extend("force", config.window, config[section].window)
+  end
   for _, option in ipairs({
     { config, "notify" },
     { config.progress, "enabled" },
     { config.lsp, "enabled" },
+    { config.notification, "merge_duplicates" },
+    { config.notification, "timestamp" },
+    { config.progress, "group_by_source" },
+    { config.progress, "show_elapsed" },
   }) do
     assert(type(option[1][option[2]]) == "boolean", option[2] .. " must be a boolean")
   end
@@ -56,18 +75,12 @@ function M.resolve(opts)
     { config, "history_size", 0 },
     { config, "max_notifications", 1 },
     { config, "max_pending", 1 },
-    { config.window, "max_width", 1 },
-    { config.window, "min_width", 1 },
-    { config.window, "max_height", 1 },
-    { config.window, "top", 0 },
-    { config.window, "right", 0 },
-    { config.window, "bottom", 0 },
-    { config.window, "winblend", 0 },
-    { config.window, "zindex", 1 },
     { config.progress, "max_items", 1 },
     { config.progress, "interval", 16 },
     { config.progress, "done_ttl", 0 },
     { config.progress, "stale_timeout", 0 },
+    { config.notification, "fade_out", 0 },
+    { config.progress, "fade_out", 0 },
   }) do
     local value = path[1][path[2]]
     assert(
@@ -78,7 +91,40 @@ function M.resolve(opts)
       path[2] .. " must be an integer >= " .. path[3]
     )
   end
-  assert(config.window.winblend <= 100, "winblend must be <= 100")
+  for _, window in ipairs({ config.window, config.notification.window, config.progress.window }) do
+    for key, minimum in pairs({
+      min_width = 1,
+      max_width = 1,
+      max_height = 1,
+      top = 0,
+      right = 0,
+      bottom = 0,
+      zindex = 1,
+      winblend = 0,
+      gap = 0,
+    }) do
+      local value = window[key]
+      assert(
+        type(value) == "number"
+          and value >= minimum
+          and value < math.huge
+          and value == math.floor(value),
+        key .. " must be a finite integer >= " .. minimum
+      )
+    end
+    assert(window.winblend <= 100, "winblend must be <= 100")
+    assert(
+      vim.tbl_contains({ "rounded", "single", "double", "solid", "none", "" }, window.border),
+      "unsupported border"
+    )
+    for _, axis in ipairs({ "horizontal", "vertical" }) do
+      local value = window.padding[axis]
+      assert(
+        type(value) == "number" and value >= 0 and value < math.huge and value == math.floor(value),
+        "padding must contain finite nonnegative integers"
+      )
+    end
+  end
   -- Replace lists rather than recursively merging default array elements.
   if opts and opts.progress then
     config.progress.avoid = vim.deepcopy(opts.progress.avoid or config.progress.avoid)
@@ -97,10 +143,6 @@ function M.resolve(opts)
   for _, frame in ipairs(config.progress.spinner) do
     assert(type(frame) == "string" and frame ~= "", "spinner frames must be nonempty strings")
   end
-  assert(
-    vim.tbl_contains({ "rounded", "single", "double", "solid", "none", "" }, config.window.border),
-    "unsupported border"
-  )
   config.level = M.level(config.level)
   return config
 end

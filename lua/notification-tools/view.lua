@@ -1,4 +1,7 @@
 local M = {}
+local layout = require("notification-tools.layout")
+local model = require("notification-tools.state")
+local fade_cache = {}
 local api = vim.api
 local ns = api.nvim_create_namespace("notification-tools")
 local windows = {}
@@ -6,10 +9,16 @@ local history_win
 local names = { [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF" }
 
 function M.highlights()
+  fade_cache = {}
   for name, link in pairs({
     Normal = "NormalFloat",
     Border = "FloatBorder",
     Title = "Title",
+    Meta = "Comment",
+    Source = "Comment",
+    Cancelled = "Comment",
+    NotificationNormal = "NotificationToolsNormal",
+    ProgressNormal = "NotificationToolsNormal",
     ERROR = "DiagnosticError",
     WARN = "DiagnosticWarn",
     INFO = "DiagnosticInfo",
@@ -20,45 +29,15 @@ function M.highlights()
   }) do
     api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, link = link })
   end
-end
-
-local function clean(text)
-  return tostring(text or ""):gsub("\t", "  "):gsub("[%z\1-\8\11-\31\127]", "")
-end
-
--- Split by display cells, preserving multibyte characters and combining marks.
-function M.wrap(text, width, limit)
-  local lines = {}
-  for _, source in ipairs(vim.split(clean(text), "\n", { plain = true })) do
-    local line = ""
-    for _, char in ipairs(vim.fn.split(source, "\\zs")) do
-      if vim.fn.strdisplaywidth(line .. char) > width then
-        if line ~= "" then
-          lines[#lines + 1] = line
-          if limit and #lines >= limit then
-            return lines
-          end
-        end
-        line = vim.fn.strdisplaywidth(char) <= width and char or "?"
-      else
-        line = line .. char
-      end
-    end
-    lines[#lines + 1] = line
-    if limit and #lines >= limit then
-      return lines
-    end
+  local float = api.nvim_get_hl(0, { name = "NormalFloat", link = false })
+  local normal = api.nvim_get_hl(0, { name = "Normal", link = false })
+  for _, name in ipairs({ "Body", "TaskTitle" }) do
+    api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, fg = float.fg or normal.fg })
   end
-  return lines
 end
 
-local function clip(text, width)
-  local lines = M.wrap(text, width)
-  if #lines > 1 and width > 1 then
-    return M.wrap(lines[1], width - 1)[1] .. "…"
-  end
-  return lines[1]
-end
+local clean = layout.clean
+M.wrap = layout.wrap
 
 local function close(key)
   local entry = windows[key]
@@ -86,7 +65,42 @@ function M.close_history()
   history_win = nil
 end
 
-local function draw(key, lines, row, col, width, config, marks)
+local function mix(foreground, background, opacity)
+  local result = 0
+  for _, shift in ipairs({ 16, 8, 0 }) do
+    local scale = 2 ^ shift
+    local fg, bg = math.floor(foreground / scale) % 256, math.floor(background / scale) % 256
+    result = result + math.floor(bg + (fg - bg) * opacity + 0.5) * scale
+  end
+  return result
+end
+
+local function faded(key, opacity, surface)
+  local base = "NotificationTools" .. key
+  local step = math.floor(opacity * 8 + 0.5)
+  if step >= 8 then
+    return base
+  end
+  local definition = api.nvim_get_hl(0, { name = base, link = false })
+  local normal = api.nvim_get_hl(0, { name = "NotificationTools" .. surface, link = false })
+  local editor = api.nvim_get_hl(0, { name = "Normal", link = false })
+  local muted = api.nvim_get_hl(0, { name = "Comment", link = false })
+  local foreground = definition.fg or normal.fg or editor.fg
+  local background = definition.bg or normal.bg or editor.bg or muted.fg
+  if not foreground or not background then
+    return base
+  end
+  definition.default = nil
+  definition.fg = mix(foreground, background, step / 8)
+  local name = base .. "Fade" .. surface .. step
+  if not vim.deep_equal(fade_cache[name], definition) then
+    api.nvim_set_hl(0, name, definition)
+    fade_cache[name] = definition
+  end
+  return name
+end
+
+local function draw(key, plan, row, config, opacity, fade_out, now)
   local entry = windows[key]
   if entry and (not api.nvim_win_is_valid(entry.win) or not api.nvim_buf_is_valid(entry.buf)) then
     close(key)
@@ -96,9 +110,9 @@ local function draw(key, lines, row, col, width, config, marks)
     relative = "editor",
     anchor = "NW",
     row = row,
-    col = col,
-    width = width,
-    height = #lines,
+    col = vim.o.columns - config.right - plan.width - layout.border(config),
+    width = plan.width,
+    height = #plan.lines,
     style = "minimal",
     border = config.border,
     focusable = false,
@@ -111,118 +125,120 @@ local function draw(key, lines, row, col, width, config, marks)
     vim.bo[buf].filetype = "notification-tools"
     entry = { buf = buf, win = api.nvim_open_win(buf, false, options) }
     windows[key] = entry
-  else
+  elseif not vim.deep_equal(entry.options, options) then
     api.nvim_win_set_config(entry.win, options)
   end
-  vim.wo[entry.win].winblend = config.winblend
-  vim.wo[entry.win].winhighlight =
-    "Normal:NotificationToolsNormal,FloatBorder:NotificationToolsBorder"
+  entry.options, entry.width = options, plan.width
+  local normal = key == "progress" and "ProgressNormal" or "NotificationNormal"
+  vim.wo[entry.win].winhighlight = "Normal:NotificationTools"
+    .. normal
+    .. ",FloatBorder:NotificationToolsBorder"
+  vim.wo[entry.win].winblend =
+    math.floor(config.winblend + (100 - config.winblend) * (1 - (opacity or 1)))
   vim.wo[entry.win].wrap = false
-  if not vim.deep_equal(entry.lines, lines) then
+  local content_changed = not vim.deep_equal(entry.lines, plan.lines)
+  if content_changed then
     vim.bo[entry.buf].modifiable = true
-    api.nvim_buf_set_lines(entry.buf, 0, -1, false, lines)
+    api.nvim_buf_set_lines(entry.buf, 0, -1, false, plan.lines)
     vim.bo[entry.buf].modifiable = false
-    entry.lines = lines
+    entry.lines = plan.lines
   end
-  api.nvim_buf_clear_namespace(entry.buf, ns, 0, -1)
-  for _, mark in ipairs(marks) do
-    api.nvim_buf_set_extmark(entry.buf, ns, mark[1], 0, {
-      end_col = #lines[mark[1] + 1],
-      hl_group = "NotificationTools" .. mark[2],
-    })
+  local marks = {}
+  for _, mark in ipairs(plan.marks) do
+    marks[#marks + 1] = {
+      row = mark.row,
+      col = mark.col,
+      finish = mark.finish,
+      hl = faded(mark.hl, opacity or model.opacity(mark.item, fade_out, now), normal),
+    }
   end
+  if content_changed or not vim.deep_equal(entry.marks, marks) then
+    api.nvim_buf_clear_namespace(entry.buf, ns, 0, -1)
+    for _, mark in ipairs(marks) do
+      api.nvim_buf_set_extmark(
+        entry.buf,
+        ns,
+        mark.row,
+        mark.col,
+        { end_col = mark.finish, hl_group = mark.hl }
+      )
+    end
+    entry.marks = marks
+  end
+end
+
+local function notice_key(notice)
+  return "notice:" .. type(notice.id) .. ":" .. tostring(notice.id)
 end
 
 function M.render(state)
   local config = state.config
-  local c = config.window
+  local n, p = config.notification.window, config.progress.window
   local tabline = vim.o.showtabline == 2
     or (vim.o.showtabline == 1 and #api.nvim_list_tabpages() > 1)
-  local top = c.top + (tabline and 1 or 0)
-  local bottom = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0) - c.bottom
-  local border = c.border ~= "none" and c.border ~= "" and 2 or 0
-  local width = math.min(c.max_width, vim.o.columns - c.right - border - 1)
-  local available = bottom - top
-  if width < 4 or available < 3 + border then
-    M.close()
-    return
-  end
-  local notices = require("notification-tools.state").sorted(state.notices)
-  local tasks = require("notification-tools.state").sorted(state.tasks)
-  local avoid = vim.tbl_contains(config.progress.avoid, vim.bo.filetype)
-  local used = {}
-  local progress_height = 0
-  if config.progress.enabled and #tasks > 0 and not avoid then
-    local budget = #notices > 0 and math.floor(available / 2) or available
-    local height = math.min(#tasks, config.progress.max_items, budget - border)
-    if height >= 1 then
-      local lines, marks = {}, {}
-      local frames = config.progress.spinner
-      local frame = frames[math.floor(
-        require("notification-tools.state").now() / config.progress.interval
-      ) % #frames + 1]
-      for i = 1, height do
-        local task = tasks[i]
-        local icon = task.done
-            and (task.status == "error" and "✖" or task.status == "cancelled" and "−" or "✔")
-          or frame
-        local percent = task.percentage and (" %d%%"):format(task.percentage) or ""
-        local text = icon .. " " .. task.title .. percent
-        if task.source ~= "" then
-          text = text .. " [" .. task.source .. "]"
-        end
-        if task.message ~= "" then
-          text = text .. " · " .. task.message
-        end
-        if i == height and #tasks > height and height > 1 then
-          text = "+" .. (#tasks - height + 1) .. " more tasks"
-        end
-        lines[i] = clip(text, width)
-        marks[i] =
-          { i - 1, task.done and (task.status == "error" and "ERROR" or "Done") or "Progress" }
-      end
-      progress_height = height + border + 1
-      draw(
-        "progress",
-        lines,
-        bottom - height - border,
-        vim.o.columns - c.right - width - border,
-        width,
-        c,
-        marks
-      )
+  local top = n.top + (tabline and 1 or 0)
+  local screen_bottom = vim.o.lines - vim.o.cmdheight - (vim.o.laststatus > 0 and 1 or 0)
+  local bottom = screen_bottom - n.bottom
+  local notices = model.sorted(state.notices)
+  local tasks = model.sorted(state.tasks, true)
+  local used, now = {}, model.now()
+  if
+    config.progress.enabled
+    and #tasks > 0
+    and not vim.tbl_contains(config.progress.avoid, vim.bo.filetype)
+  then
+    local progress_top = p.top + (tabline and 1 or 0)
+    local available = screen_bottom - p.bottom - progress_top
+    local shared = screen_bottom - math.max(n.bottom, p.bottom) - math.max(top, progress_top)
+    local budget = #notices > 0 and math.min(available, math.floor(shared / 2)) or available
+    local plan = layout.progress(
+      tasks,
+      config,
+      vim.o.columns - p.right - layout.border(p) - 1,
+      budget - layout.border(p),
+      windows.progress and windows.progress.width,
+      now
+    )
+    if plan then
+      local row = screen_bottom - p.bottom - #plan.lines - layout.border(p)
+      draw("progress", plan, row, p, nil, config.progress.fade_out, now)
       used.progress = true
+      bottom = math.min(bottom, row - math.max(n.gap, p.gap))
     end
+  end
+  -- Select recent notices first, then display them in creation order. Appending or
+  -- updating a notice leaves its neighbours in place while there is room.
+  local plans, remaining = {}, bottom - top
+  for i = 1, math.min(#notices, config.max_notifications) do
+    local notice = notices[i]
+    local key = notice_key(notice)
+    local plan = layout.notification(
+      notice,
+      config,
+      vim.o.columns - n.right - layout.border(n) - 1,
+      remaining - layout.border(n),
+      windows[key] and windows[key].width
+    )
+    if not plan then
+      break
+    end
+    plans[#plans + 1] = { key = key, notice = notice, plan = plan }
+    remaining = remaining - #plan.lines - layout.border(n) - n.gap
   end
   local row = top
-  for index, notice in ipairs(notices) do
-    if index > config.max_notifications then
-      break
-    end
-    local budget = bottom - progress_height - row - border
-    if budget < 2 then
-      break
-    end
-    local level = names[notice.level]
-    local header = (notice.icon or config.icons[level] or "●") .. " " .. notice.title
-    local natural = math.max(c.min_width, vim.fn.strdisplaywidth(clean(header)))
-    for _, line in ipairs(vim.split(clean(notice.message), "\n", { plain = true })) do
-      natural = math.max(natural, vim.fn.strdisplaywidth(line))
-    end
-    local w = math.min(width, natural)
-    local body = M.wrap(notice.message, w, c.max_height + 1)
-    local lines = { clip(header, w) }
-    local count = math.min(#body, c.max_height, budget - 1)
-    for i = 1, count do
-      lines[#lines + 1] = body[i]
-    end
-    if count < #body then
-      lines[#lines] = clip(lines[#lines] .. " …", w)
-    end
-    local key = "notice:" .. type(notice.id) .. ":" .. tostring(notice.id)
-    draw(key, lines, row, vim.o.columns - c.right - w - border, w, c, { { 0, level } })
-    used[key] = true
-    row = row + #lines + border + 1
+  for i = #plans, 1, -1 do
+    local entry = plans[i]
+    draw(
+      entry.key,
+      entry.plan,
+      row,
+      n,
+      model.opacity(entry.notice, config.notification.fade_out, now),
+      nil,
+      now
+    )
+    used[entry.key] = true
+    row = row + #entry.plan.lines + layout.border(n) + n.gap
   end
   for key in pairs(windows) do
     if not used[key] then
@@ -240,7 +256,11 @@ function M.history(items)
       .. names[item.level]
       .. "  "
       .. clean(item.title):gsub("\n", " ")
+      .. ((item.count or 1) > 1 and ("  ×" .. item.count) or "")
     vim.list_extend(lines, vim.split(clean(item.message), "\n", { plain = true }))
+    if item.details and item.details ~= "" then
+      vim.list_extend(lines, vim.split(clean(item.details), "\n", { plain = true }))
+    end
     lines[#lines + 1] = ""
   end
   if #lines == 0 then

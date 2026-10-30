@@ -16,7 +16,7 @@ if theme and theme ~= "" then
   vim.cmd.colorscheme("catppuccin")
 end
 local tools = require("notification-tools")
-tools.setup({ timeout = 0, progress = { stale_timeout = 0 } })
+tools.setup({ timeout = 0, progress = { stale_timeout = 0, done_ttl = 700, fade_out = 320 } })
 vim.api.nvim_buf_set_lines(0, 0, -1, false, {
   "-- notification-tools.nvim: real TUI verification",
   "-- Top right: notifications. Bottom right: live task status.",
@@ -70,13 +70,31 @@ local function later(ms, callback)
 end
 later(150, function()
   assert(#vim.api.nvim_list_uis() > 0, "A real TUI is required")
-  notice = tools.notify("中文通知：文档已生成。", "info", { title = "Build" })
+  notice = tools.notify(
+    "中文通知：文档已生成。",
+    "info",
+    { title = "Build", details = "main.pdf · 12 pages" }
+  )
+  assert(
+    notice
+      == tools.notify(
+        "中文通知：文档已生成。",
+        "info",
+        { title = "Build", details = "main.pdf · 12 pages" }
+      )
+  )
   tools.notify("One warning from the language server", "warn", { title = "LSP" })
   task = tools.progress({
     title = "Indexing",
     source = "lua_ls",
     percentage = 35,
     message = "Reading files",
+  })
+  tools.progress({
+    title = "Building document",
+    source = "texquill",
+    percentage = 20,
+    message = "Compiling references",
   })
 end)
 local initial
@@ -85,7 +103,18 @@ later(400, function()
   assert(vim.tbl_count(initial) == 3, "Expected two notifications and a task panel")
   assert(vim.api.nvim_get_current_win() == original_win, "Floats took focus")
   local text = screen()
-  assert(text:find("Indexing 35%%") and text:find("Build"), "Text was not painted")
+  assert(
+    text:find("Indexing", 1, true) and text:find("35%", 1, true) and text:find("Build"),
+    "Text was not painted"
+  )
+  assert(
+    text:find("×2", 1, true) and text:find("main.pdf", 1, true),
+    "Notification count/details were not painted"
+  )
+  assert(
+    text:find("lua_ls", 1, true) and text:find("texquill", 1, true),
+    "Source groups were not painted"
+  )
   snapshots.before = text
   for win in pairs(initial) do
     local position = vim.api.nvim_win_get_position(win)
@@ -124,6 +153,30 @@ later(1100, function()
   local info = vim.api.nvim_get_hl(0, { name = "NotificationToolsINFO", link = false })
   local warn = vim.api.nvim_get_hl(0, { name = "NotificationToolsWARN", link = false })
   assert(info.fg and warn.fg and info.fg ~= warn.fg, "Severity colors must be visible and distinct")
+end)
+later(1450, function()
+  snapshots.fading = screen()
+  local found, active = false, false
+  local ns = vim.api.nvim_create_namespace("notification-tools")
+  for win, buf in pairs(floats()) do
+    for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+      local hl = mark[4].hl_group
+      found = found or hl:find("TaskTitleFade", 1, true) ~= nil
+      active = active or hl == "NotificationToolsTaskTitle"
+    end
+    assert(initial[win] == buf, "A fade recreated an existing float")
+  end
+  assert(found and active, "Only the completed task should fade")
+end)
+later(1750, function()
+  if failed then
+    return
+  end
+  snapshots.finished = screen()
+  assert(#tools.tasks() == 1 and tools.tasks()[1].title == "Building document")
+  for win, buf in pairs(floats()) do
+    assert(initial[win] == buf, "Task expiry recreated a sibling float")
+  end
   vim.fn.writefile(
     { vim.json.encode({ ok = true, theme = vim.g.colors_name, snapshots = snapshots }) },
     vim.env.NOTIFICATION_TOOLS_TUI_RESULT or "/private/tmp/notification-tools-tui.json"

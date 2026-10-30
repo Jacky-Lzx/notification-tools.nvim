@@ -17,8 +17,15 @@ API                                            *notification-tools-api*
 <
 notify(message, level?, opts?) returns an ID, or nil when filtered. Levels may
 be vim.log.levels values or case-insensitive names. opts: id, replace, title,
-icon, timeout. timeout=0 pins a notification. IDs are strings or finite numbers.
+icon, details, timeout. details is optional secondary text. timeout=0 pins a
+notification. IDs are strings or finite numbers.
 Replacements update the corresponding history entry. Timeouts start at creation.
+
+Without an explicit id/replace, identical active notices merge: title, body,
+details, severity, icon and timeout must match. The same ID is returned, count
+increases, and the timeout restarts. Explicit updates preserve count unless the
+content changes. Explicit IDs stay independent. Set notification.merge_duplicates
+to false to disable automatic merging. History includes the merged count.
 
 history() returns an independent oldest-first snapshot of notification records.
 show_history() opens a scrollable history window. clear_history() clears history.
@@ -68,9 +75,22 @@ window.max_width=60      Maximum window width, constrained by the screen.
 window.max_height=8      Maximum notification body lines.
 window.top/right/bottom=1 Screen margins in cells.
 window.zindex=150        Float stacking priority.
+window.gap=1             Space between notices / between the two areas.
+notification.merge_duplicates=true  Merge identical active notices.
+notification.timestamp=true         Time in the header; replaced by repeat count.
+notification.fade_out=180            Fade during the final timeout milliseconds.
+notification.window      Inherits window, with horizontal padding=2, vertical=1.
+progress.window          Inherits window, with border="none", min_width=24,
+                        max_width=44, max_height=12 and horizontal padding=1,
+                        vertical=0. max_height includes headers and details.
+*.window.padding         { horizontal = cells, vertical = lines }.
 progress.enabled=true   Show the task panel; API remains available when false.
-progress.max_items=6     Maximum panel rows, including an overflow summary.
+progress.max_items=6     Maximum visible task entries, excluding source labels.
 progress.done_ttl=1500   Result lifetime in milliseconds.
+progress.group_by_source=true       One source label per task group.
+progress.show_elapsed=true          Elapsed time when percentage is absent.
+progress.fade_out=240               Fade finished tasks during the final done_ttl
+                                   milliseconds, leaving active siblings intact.
 progress.stale_timeout=120000 Time without updates before timeout; 0 disables.
 progress.interval=80    Refresh interval in milliseconds (minimum 16).
 progress.avoid          Current-window filetypes that hide progress.
@@ -80,6 +100,16 @@ lsp.enabled=true        Subscribe to LspProgress/LspDetach without replacing
 lsp.ignore={}           Ignored LSP client names.
 icons                   TRACE/DEBUG/INFO/WARN/ERROR icon strings.
 
+window remains a shared fallback. notification.window and progress.window can
+override it independently. A notice's max_height limits body/details lines.
+Task source labels, gaps and detail lines are omitted first on small screens.
+Widths are measured from content and only grow during a float's lifetime, except
+when the screen shrinks. Source groups and their tasks keep creation order.
+Notices append in creation order; updates do not reorder them. Recent notices
+are preferred on overflow. Public task/history snapshot ordering is unchanged.
+
+Fade durations of 0 disable fading. Fades do not extend timeout or done_ttl;
+pinned notices never fade. True-color terminals provide the best color blending.
 Lists replace defaults. Screen space is shared without overlap between the two
 areas. Hidden notifications still expire; full messages remain in history.
 Repeated setup clears state. teardown() removes owned resources and restores
@@ -95,7 +125,10 @@ COMMANDS                                       *notification-tools-commands*
 
 HIGHLIGHTS                                     *notification-tools-highlights*
 
-NotificationToolsNormal, NotificationToolsBorder, NotificationToolsTitle,
+NotificationToolsNormal, NotificationToolsNotificationNormal,
+NotificationToolsProgressNormal, NotificationToolsBorder, NotificationToolsTitle,
+NotificationToolsBody, NotificationToolsTaskTitle, NotificationToolsMeta,
+NotificationToolsSource, NotificationToolsCancelled,
 NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
 NotificationToolsDone. Defaults link to standard theme groups.

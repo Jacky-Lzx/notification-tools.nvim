@@ -56,7 +56,8 @@ local function changed()
   request_render()
   if not timer then
     timer = assert(uv.new_timer())
-    timer:start(state.config.progress.interval, state.config.progress.interval, request_render)
+    local interval = math.min(33, state.config.progress.interval)
+    timer:start(interval, interval, request_render)
   end
 end
 
@@ -88,12 +89,15 @@ end
 function M.notify(message, level, opts)
   ensure()
   opts = opts or {}
-  local id = opts.id or opts.replace or model.id()
+  local explicit = opts.id ~= nil or opts.replace ~= nil
+  local id = opts.id or opts.replace
   if type(id) == "table" then
     id = id.id
   end
-  valid_id(id)
-  local old = state.notices[id]
+  if id ~= nil then
+    valid_id(id)
+  end
+  local old = id ~= nil and state.notices[id] or nil
   level = config.level(level or (old and old.level) or vim.log.levels.INFO)
   if level < state.config.level or level == vim.log.levels.OFF then
     return nil
@@ -106,16 +110,47 @@ function M.notify(message, level, opts)
     type(timeout) == "number" and timeout >= 0 and timeout < math.huge,
     "timeout must be finite and >= 0"
   )
+  local message_text = text(message)
+  local title = text(opts.title or (old and old.title) or "Notification")
+  local details = opts.details ~= nil and text(opts.details) or (old and old.details) or ""
+  local icon = opts.icon or (old and old.icon)
+  local now = model.now()
+  if not explicit and state.config.notification.merge_duplicates then
+    for _, item in ipairs(model.sorted(state.notices)) do
+      if
+        (not item.expires or item.expires > now)
+        and item.message == message_text
+        and item.title == title
+        and item.details == details
+        and item.level == level
+        and item.icon == icon
+        and item.timeout == timeout
+      then
+        old, id = item, item.id
+        break
+      end
+    end
+  end
+  id = id or model.id()
+  local same = old
+    and old.message == message_text
+    and old.title == title
+    and old.level == level
+    and old.details == details
+    and old.icon == icon
   state.serial = state.serial + 1
   local notice = {
     id = id,
-    message = text(message),
+    message = message_text,
     level = level,
-    title = text(opts.title or (old and old.title) or "Notification"),
-    icon = opts.icon or (old and old.icon),
+    title = title,
+    details = details,
+    icon = icon,
+    count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
     time = os.time(),
-    order = state.serial,
-    expires = timeout > 0 and (model.now() + timeout) or nil,
+    order = old and old.order or state.serial,
+    timeout = timeout,
+    expires = timeout > 0 and (now + timeout) or nil,
   }
   state.notices[id] = notice
   model.archive(state, notice)
@@ -188,7 +223,14 @@ function M.progress(opts)
     return task.handle
   end
   state.serial = state.serial + 1
-  task = { id = id, title = "Working", message = "", source = "", order = state.serial }
+  task = {
+    id = id,
+    title = "Working",
+    message = "",
+    source = "",
+    order = state.serial,
+    started = model.now(),
+  }
   update_task(task, opts)
   local owner = state
   local handle = { id = id }
@@ -210,6 +252,7 @@ function M.progress(opts)
       status = status or "success"
       assert(vim.tbl_contains({ "success", "error", "cancelled" }, status), "invalid task status")
       task.done = true
+      task.finished = model.now()
       task.status = status
       task.message = text(
         message
@@ -219,6 +262,7 @@ function M.progress(opts)
         task.percentage = 100
       end
       task.expires = model.now() + state.config.progress.done_ttl
+      task.lifetime = state.config.progress.done_ttl
       changed()
     end
     return self
@@ -336,13 +380,13 @@ end
 
 function M.demo()
   ensure()
-  M.notify(
-    "通知显示在右上角，任务进度显示在右下角。",
-    "info",
-    { title = "notification-tools.nvim" }
-  )
-  M.notify("Build completed successfully", "info", { title = "texquill" })
+  for _ = 1, 2 do
+    M.notify("文档编译完成", "info", { title = "texquill", details = "main.pdf · 12 pages" })
+  end
+  M.notify("Workspace library is incomplete", "warn", { title = "lua_ls" })
   local task = M.progress({ title = "Indexing workspace", source = "lua_ls", percentage = 0 })
+  local build =
+    M.progress({ title = "Generating preview", source = "Build", message = "Rendering pages" })
   local current = generation
   for i = 1, 5 do
     vim.defer_fn(function()
@@ -350,6 +394,7 @@ function M.demo()
         task:update({ percentage = i * 20, message = "Processing files" })
         if i == 5 then
           task:finish()
+          build:finish("Preview ready")
         end
       end
     end, i * 600)
