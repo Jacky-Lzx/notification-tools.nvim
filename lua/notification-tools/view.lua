@@ -363,7 +363,7 @@ function M.history(items)
   vim.wo[history_win].wrap = true
   vim.wo[history_win].linebreak = true
   vim.wo[history_win].conceallevel = 2
-  vim.wo[history_win].concealcursor = "nc"
+  vim.wo[history_win].concealcursor = "c"
   vim.wo[history_win].winhighlight =
     "Normal:NotificationToolsNormal,FloatBorder:NotificationToolsBorder"
   history_marks = marks
