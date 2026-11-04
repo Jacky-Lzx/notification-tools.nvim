@@ -180,20 +180,9 @@ function M.show_history(opts)
   end)
 end
 
----Read a complete notice; an active notice's remaining timeout pauses until closed.
----@param id? notification_tools.ID Omit to read the latest ordinary notification.
----@return notification_tools.ID? id Nil when unavailable; display is scheduled.
-function M.show_notification(id)
-  ensure()
-  if id ~= nil then
-    model.valid_id(id)
-  end
-  local item = model.find_notice(state, id)
-  if not item then
-    return nil
-  end
+local function read_notification(item)
   local snapshot, owner, current = vim.deepcopy(item), state, generation
-  id = item.id
+  local id = item.id
   vim.schedule(function()
     if current ~= generation then
       return
@@ -223,6 +212,32 @@ function M.show_notification(id)
     changed()
   end)
   return id
+end
+
+---Read a complete notice; an active notice's remaining timeout pauses until closed.
+---@param id? notification_tools.ID Omit to read the latest ordinary notification.
+---@return notification_tools.ID? id Nil when unavailable; display is scheduled.
+function M.show_notification(id)
+  ensure()
+  if id ~= nil then
+    model.valid_id(id)
+  end
+  local item = model.find_notice(state, id)
+  return item and read_notification(item) or nil
+end
+
+---Search a newest-first history snapshot with optional selection-tools.nvim.
+---@param opts? notification_tools.HistoryFilters
+---@return table picker
+function M.pick_history(opts)
+  local records = M.history(opts)
+  local current = generation
+  return require("notification-tools.picker").open(records, function(item)
+    if item and current == generation then
+      -- An evicted record remains readable from the picker's independent snapshot.
+      read_notification(model.find_notice(state, item.id) or item)
+    end
+  end)
 end
 
 ---Create or retrieve a bottom-right task. Handles are inert after teardown/replacement.
@@ -293,6 +308,9 @@ end
 ---Release owned resources and restore vim.notify only while still owned.
 function M.teardown()
   generation = generation + 1
+  if package.loaded["notification-tools.picker"] then
+    require("notification-tools.picker").close()
+  end
   if package.loaded["notification-tools.messages"] then
     require("notification-tools.messages").detach()
   end

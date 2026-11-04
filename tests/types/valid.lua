@@ -37,6 +37,7 @@ local history = api.history({ level = "warning", source = "Build", title = "buil
 ---@type notification_tools.TaskSnapshot[]
 local tasks = api.tasks()
 api.show_history({ level = 3 })
+api.pick_history({ level = "warn", source = "compiler", title = "Build" })
 api.show_notification(id)
 api.dismiss(id)
 api.set_dnd(true)

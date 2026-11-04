@@ -141,6 +141,17 @@ Open `:Notifications`, or start with filters:
 :Notifications level=warn source=lua_ls
 ```
 
+For fuzzy search, install the optional **selection-tools.nvim** picker and run
+`:NotificationsPick`, or `require("notification-tools").pick_history(opts)` with
+the same severity/source/title filters. The picker searches timestamps, levels,
+titles, sources, full message bodies and details, with newest records first.
+Its preview shows the complete message and details; `<CR>` opens the selected
+record in the reading window and `<Esc>` cancels. The picker uses an independent
+snapshot, so records evicted while searching remain readable. Reopen it to fetch
+new messages. Setup/teardown closes the picker and invalidates its callbacks.
+Selection-tools is loaded only when this feature is used; notifications, progress
+and the ordinary history window do not require it.
+
 | Key           | Action                                                                  |
 | ------------- | ----------------------------------------------------------------------- |
 | `/`, `y`      | Native search and copying. Yanks preserve original Markdown.            |
@@ -361,6 +372,7 @@ See [types.lua](lua/notification-tools/types.lua) for `NotifyOptions`, `TaskOpti
 | Command                                         | Action                                                       |
 | ----------------------------------------------- | ------------------------------------------------------------ |
 | `:Notifications [level=…] [source=…] [title=…]` | Open filtered history.                                       |
+| `:NotificationsPick [level=…] [source=…] [title=…]` | Fuzzy search history with optional selection-tools.nvim.      |
 | `:NotificationsLatest`                          | Read the latest ordinary notification in full.               |
 | `:NotificationsDnd [on\|off\|toggle]`           | Control do not disturb.                                      |
 | `:NotificationsDismiss`                         | Dismiss ordinary notifications, retaining history and tasks. |

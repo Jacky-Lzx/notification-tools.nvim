@@ -16,25 +16,31 @@ function M.clear()
 end
 
 function M.setup(tools)
-  create("Notifications", function(args)
-    local opts = {}
-    for _, arg in ipairs(args.fargs) do
-      local key, value = arg:match("^(%a+)=(.+)$")
-      assert(
-        key == "level" or key == "source" or key == "title",
-        "expected level=, source= or title="
-      )
-      opts[key] = value
-    end
-    tools.show_history(opts)
-  end, {
-    desc = "Notification history",
-    force = true,
-    nargs = "*",
-    complete = function()
-      return { "level=", "source=", "title=" }
-    end,
-  })
+  local function history_command(callback, description)
+    return function(args)
+      local opts = {}
+      for _, arg in ipairs(args.fargs) do
+        local key, value = arg:match("^(%a+)=(.+)$")
+        assert(
+          key == "level" or key == "source" or key == "title",
+          "expected level=, source= or title="
+        )
+        opts[key] = value
+      end
+      callback(opts)
+    end, {
+      desc = description,
+      force = true,
+      nargs = "*",
+      complete = function()
+        return { "level=", "source=", "title=" }
+      end,
+    }
+  end
+  local callback, opts = history_command(tools.show_history, "Notification history")
+  create("Notifications", callback, opts)
+  callback, opts = history_command(tools.pick_history, "Fuzzy search notification history")
+  create("NotificationsPick", callback, opts)
   create("NotificationsDismiss", function()
     tools.dismiss()
   end, { desc = "Dismiss visible notifications", force = true })

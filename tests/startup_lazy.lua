@@ -2,7 +2,7 @@ local h = dofile("tests/helpers.lua")
 local tools = require("notification-tools")
 local original = vim.notify
 local function cold()
-  for _, module in ipairs({ "view", "layout", "markdown", "text", "history" }) do
+  for _, module in ipairs({ "view", "layout", "markdown", "text", "history", "picker" }) do
     assert(
       not package.loaded["notification-tools." .. module],
       "unexpected eager module: " .. module

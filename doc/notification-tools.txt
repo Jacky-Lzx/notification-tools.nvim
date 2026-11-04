@@ -63,6 +63,19 @@ ID and line offset when it is still available. New notices do not auto-refresh.
 Active filters and the visible record count appear in the window title.
 dismiss() closes all ordinary notifications, preserving history and tasks.
 
+FUZZY HISTORY                                  *notification-tools-picker*
+
+:NotificationsPick [level=warn] [source=lua_ls] [title=Build] opens the optional
+selection-tools.nvim picker. pick_history(opts?) accepts the same HistoryFilters
+as history()/show_history() and returns the picker. Selection-tools loads only on
+use; the other APIs do not require it. Missing selection-tools raises an error.
+Search includes timestamps, levels, titles, sources, full messages and details.
+Records start newest-first. The preview shows the complete message and details;
+<CR> reads the selection, <Esc> cancels. The picker uses a snapshot: reopen it to
+include new messages. Evicted records remain readable from that snapshot.
+Setup/teardown closes the picker and invalidates old callbacks. Confirmation uses
+the existing reader, including pause/resume of an active notice's timeout.
+
 READING                                        *notification-tools-reading*
 
 show_notification(id?) opens one complete notice. Without an ID, it chooses the
@@ -298,6 +311,7 @@ COMMANDS                                       *notification-tools-commands*
 :Notifications           Show colored history with Markdown conceal and cursor-line
                          source reveal; q or Escape closes it.
 :NotificationsDismiss    Dismiss ordinary notifications.
+:NotificationsPick       Fuzzy search history using optional selection-tools.nvim.
 :NotificationsClear      Clear notification history.
 :NotificationsDnd [on|off|toggle] Toggle do-not-disturb (no argument also toggles).
 :NotificationsLatest     Read the latest ordinary notice; pause its active timeout.
