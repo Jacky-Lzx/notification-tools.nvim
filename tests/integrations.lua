@@ -91,7 +91,12 @@ tools
 h.eq("error", tools.tasks()[1].status)
 h.eq("cancelled", tools.tasks()[2].status)
 for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ group = "NotificationTools" })) do
-  assert(autocmd.event ~= "User", "the plugin must not subscribe to consumer-specific events")
+  assert(
+    autocmd.event ~= "User"
+      or autocmd.pattern == "ThemeToolsIconsChanged"
+      or autocmd.pattern == "ThemeToolsReady",
+    "the plugin must not subscribe to consumer-specific events"
+  )
 end
 vim.lsp.get_client_by_id = original
 tools.teardown()

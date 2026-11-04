@@ -153,12 +153,19 @@ local function notification(notice, config, maximum, height, minimum)
   local level = ({ [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR" })[notice.level]
   local c = config.notification.window
   local content = formatted(notice, config)
-  local icon = inline(notice.icon or config.icons[level] or "●")
+  local icon = inline(
+    require("notification-tools.icons").get(
+      "diagnostic",
+      level:lower(),
+      notice.icon or config.icons[level] or "●"
+    )
+  )
   local title = inline(notice.title)
-  local indent_width = cells(icon) + 1
+  local indent_width = icon ~= "" and (cells(icon) + 1) or 0
   local meta = (notice.count or 1) > 1 and ("×" .. notice.count)
     or (config.notification.timestamp and os.date("%H:%M", notice.time) or "")
-  local natural = cells(icon .. " " .. title) + (meta ~= "" and cells(meta) + 2 or 0)
+  local heading = (icon ~= "" and (icon .. " ") or "") .. title
+  local natural = cells(heading) + (meta ~= "" and cells(meta) + 2 or 0)
   local cap = math.max(0, math.min(maximum, c.max_width) - c.padding.horizontal * 2 - indent_width)
   local metric = text.metrics()
   local key = metric .. ":" .. cap
@@ -173,11 +180,11 @@ local function notification(notice, config, maximum, height, minimum)
   for _ = 1, py do
     blank(result)
   end
-  local chunks = header(icon .. " " .. title, "Title", meta, inner)
+  local chunks = header(heading, "Title", meta, inner)
   -- Separate the icon's severity from the title's normal emphasis, in byte columns.
   local left = chunks[1][1]
   local visible_icon = M.clip(icon, math.max(1, inner - 1))
-  if left:sub(1, #visible_icon) == visible_icon then
+  if visible_icon ~= "" and left:sub(1, #visible_icon) == visible_icon then
     chunks[1] = { visible_icon, level }
     table.insert(chunks, 2, { left:sub(#visible_icon + 1), "Title" })
   end
@@ -238,7 +245,13 @@ function M.notification(notice, config, maximum, height, minimum)
     notice.details,
     notice.title,
     notice.level,
-    notice.icon or false,
+    require("notification-tools.icons").get(
+      "diagnostic",
+      ({ [0] = "trace", "debug", "info", "warn", "error" })[notice.level],
+      notice.icon
+        or config.icons[({ [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR" })[notice.level]]
+        or "●"
+    ),
     notice.markdown,
     notice.count or 1,
     notice.time,
@@ -315,9 +328,21 @@ local function progress(tasks, config, maximum, height, minimum, now)
   local groups, lookup = {}, {}
   local frames = p.spinner
   local frame = frames[math.floor(now / p.interval) % #frames + 1]
-  local icon_width = math.max(1, cells("✔"), cells("✖"), cells("−"))
-  for _, icon in ipairs(frames) do
+  local shared = package.loaded["theme_tools.icons"]
+  local mode = shared and shared.current()
+  local icon_width = mode == "none" and 0 or 1
+  for _, name in ipairs({ "check", "close", "cancelled", "loading" }) do
+    local icon = require("notification-tools.icons").get(
+      "ui",
+      name,
+      name == "loading" and frame or name == "check" and "✔" or name == "close" and "✖" or "−"
+    )
     icon_width = math.max(icon_width, cells(inline(icon)))
+  end
+  if mode ~= "ascii" and mode ~= "none" then
+    for _, icon in ipairs(frames) do
+      icon_width = math.max(icon_width, cells(inline(icon)))
+    end
   end
   local natural = c.min_width - c.padding.horizontal * 2
   for i = 1, count do
@@ -330,6 +355,15 @@ local function progress(tasks, config, maximum, height, minimum, now)
     local icon = task.done
         and (task.status == "error" and "✖" or task.status == "cancelled" and "−" or "✔")
       or inline(frame)
+    if task.done then
+      icon = require("notification-tools.icons").get(
+        "ui",
+        task.status == "error" and "close" or task.status == "cancelled" and "cancelled" or "check",
+        icon
+      )
+    elseif mode == "ascii" or mode == "none" then
+      icon = require("notification-tools.icons").get("ui", "loading", icon)
+    end
     local meta = task.percentage ~= nil and ("%d%%"):format(task.percentage)
       or (p.show_elapsed and elapsed(task, now) or "")
     lookup[source].tasks[#lookup[source].tasks + 1] = { task = task, icon = icon, meta = meta }
@@ -360,7 +394,9 @@ local function progress(tasks, config, maximum, height, minimum, now)
       for _, entry in ipairs(group.tasks) do
         local task = entry.task
         local icon = M.clip(entry.icon, math.max(1, math.min(icon_width, inner - 2)))
-        local prefix = icon .. string.rep(" ", math.max(1, icon_width - cells(icon) + 1))
+        local prefix = icon_width > 0
+            and (icon .. string.rep(" ", math.max(1, icon_width - cells(icon) + 1)))
+          or ""
         if cells(prefix) >= inner then
           prefix = M.clip(prefix, inner - 1)
         end
@@ -380,7 +416,7 @@ local function progress(tasks, config, maximum, height, minimum, now)
           },
         }
         if bars then
-          local indent = math.min(icon_width + 1, inner - 1)
+          local indent = math.min(icon_width > 0 and icon_width + 1 or 0, inner - 1)
           local chunks = bar(task, inner - indent, now, p.interval)
           if chunks then
             result[#result + 1] = {
@@ -391,7 +427,7 @@ local function progress(tasks, config, maximum, height, minimum, now)
           end
         end
         if details and task.message ~= "" then
-          local indent = math.min(icon_width + 1, inner - 1)
+          local indent = math.min(icon_width > 0 and icon_width + 1 or 0, inner - 1)
           result[#result + 1] = {
             item = task,
             chunks = {
@@ -443,7 +479,12 @@ end
 function M.progress(tasks, config, maximum, height, minimum, now)
   now = now or model.now()
   local p = config.progress
-  local key = { maximum, height, minimum or 0, text.metrics(), #tasks }
+  local shared = package.loaded["theme_tools.icons"]
+  local key =
+    { maximum, height, minimum or 0, text.metrics(), #tasks, shared and shared.current() or false }
+  for _, name in ipairs({ "check", "close", "cancelled", "loading" }) do
+    key[#key + 1] = require("notification-tools.icons").get("ui", name, "")
+  end
   for i = 1, math.min(#tasks, p.max_items, math.max(0, height)) do
     local task = tasks[i]
     key[#key + 1] = {

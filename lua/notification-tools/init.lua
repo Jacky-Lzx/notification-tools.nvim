@@ -342,6 +342,16 @@ function M.setup(opts)
       end
     end,
   })
+  vim.api.nvim_create_autocmd("User", {
+    group = group,
+    pattern = { "ThemeToolsIconsChanged", "ThemeToolsReady" },
+    callback = function()
+      if package.loaded["notification-tools.layout"] then
+        require("notification-tools.layout").reset()
+      end
+      request_render()
+    end,
+  })
   vim.api.nvim_create_autocmd({ "VimResized", "UIEnter", "WinEnter", "BufEnter" }, {
     group = group,
     callback = request_render,
