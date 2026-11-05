@@ -49,6 +49,17 @@ def main():
         assert ":echo" in screen(), screen()
         keys("<Esc>")
 
+        # Real undo/redo feedback must not create popups or captured history.
+        lua("tools.dismiss(); vim.cmd.enew()")
+        keys("iundo-redo-check<Esc>")
+        before_undo = lua("return #tools.history()")
+        for command, expected in [("u", ""), ("<C-r>", "undo-redo-check")]:
+            keys(command)
+            assert lua("return vim.api.nvim_get_current_line()") == expected
+            assert lua("return #tools.history()") == before_undo
+            assert "Neovim: undo" not in screen() and "Neovim: redo" not in screen(), screen()
+        lua("vim.bo.modified = false")
+
         # The provider, rather than notifications, owns nested input and confirms.
         keys(":lua vim.g.input_result = vim.fn.input('lease-input: ')<CR>")
         assert "lease-input:" in screen(), screen()

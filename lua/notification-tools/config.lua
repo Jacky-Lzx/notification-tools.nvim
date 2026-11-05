@@ -48,7 +48,13 @@ M.defaults = {
   lsp = { enabled = true, ignore = {} },
   messages = {
     enabled = false,
-    routes = { search_count = "drop", search_cmd = "drop", bufwrite = "history" },
+    routes = {
+      search_count = "drop",
+      search_cmd = "drop",
+      undo = "drop",
+      redo = "drop",
+      bufwrite = "history",
+    },
   },
   icons = { ERROR = "✖", WARN = "▲", INFO = "●", DEBUG = "◆", TRACE = "·" },
 }

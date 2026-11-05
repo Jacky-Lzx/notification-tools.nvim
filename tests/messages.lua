@@ -126,6 +126,8 @@ lease, callback = start({
 event(callback, "lua_print", "log only")
 event(callback, "echo", "discard")
 event(callback, "search_count", "1/2")
+event(callback, "undo", "1 change; before #160  1 second ago")
+event(callback, "redo", "1 change; after #160  1 second ago")
 event(callback, "bufwrite", "written")
 settle()
 h.eq(2, #tools.history())

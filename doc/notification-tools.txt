@@ -157,7 +157,8 @@ spacing; native chunk colors are not rendered. Native IDs, replace_last and
 append update records; explicit IDs mean native messages do not auto-merge.
 
 messages.routes maps kinds to show/history/drop; unlisted kinds use show.
-Defaults: search_count=drop, search_cmd=drop, bufwrite=history. Override with show
+Defaults: search_count=drop, search_cmd=drop, undo=drop, redo=drop,
+bufwrite=history. Override with show
 to restore a default popup. Ordinary minimum severity, notification.filter and
 DND still apply. The filter cannot promote history to show. Interactive kinds
 cannot be routed to notifications. Ingress and native-ID tracking are bounded by

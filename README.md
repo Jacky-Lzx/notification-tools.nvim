@@ -263,7 +263,10 @@ require("notification-tools").setup({
   lsp = { enabled = true, ignore = {} },
   messages = {
     enabled = false, -- Also requires a ready external cmdline/prompt renderer.
-    routes = { search_count = "drop", search_cmd = "drop", bufwrite = "history" },
+    routes = {
+      search_count = "drop", search_cmd = "drop",
+      undo = "drop", redo = "drop", bufwrite = "history",
+    },
   },
 })
 ```
@@ -307,6 +310,8 @@ require("notification-tools").setup({
       lua_print = "history", -- Optional: keep print() output without a popup.
       search_count = "drop",
       search_cmd = "drop",
+      undo = "drop",
+      redo = "drop",
       bufwrite = "history",
     },
   },
@@ -333,7 +338,7 @@ Older Neovim versions emit numbered choices such as `inputlist()` as unnamed mes
 
 Captured non-interactive `msg_show` events use source `neovim`, a kind-specific title and literal text (`markdown = false`). Errors (`emsg`, `echoerr`, `lua_error`, `rpc_error`) map to ERROR; `wmsg` maps to WARN; other kinds use INFO. Original chunk text is preserved, but native per-chunk colors are not currently rendered. Append, replace-last and native message IDs update the corresponding record. Native messages have explicit IDs and do not auto-merge as repeated ordinary notifications do.
 
-Routes map a message kind to `show`, `history` or `drop`; unlisted kinds use `show`. Override a default with `"show"` to restore its popups. The global severity, ordinary notification filter and DND still apply; a history-only route cannot be promoted to a popup by the filter. The ingress queue and remembered native IDs are bounded by `max_pending`; an overloaded queue keeps the newest events. `msg_clear` resets append/replacement tracking while cards retain their configured lifetime.
+Routes map a message kind to `show`, `history` or `drop`; unlisted kinds use `show`. Undo/redo feedback is dropped by default. Override a default with `"show"` to restore its popups. The global severity, ordinary notification filter and DND still apply; a history-only route cannot be promoted to a popup by the filter. The ingress queue and remembered native IDs are bounded by `max_pending`; an overloaded queue keeps the newest events. `msg_clear` resets append/replacement tracking while cards retain their configured lifetime.
 
 While attached, `:messages` and `g<` open the native history snapshot in the existing history reader, including native entries from before attachment. This does not replay popups or import/duplicate entries into `:Notifications`. Native history has no timestamps; the snapshot uses its opening time. `:Notifications` continues to show the plugin's captured notification/task history, including captured `:echo` output that Neovim itself may not retain. Message capture is session-only and uses the experimental `vim.ui_attach` interface.
 
