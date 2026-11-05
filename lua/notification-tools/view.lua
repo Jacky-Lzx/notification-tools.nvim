@@ -1,6 +1,7 @@
 local M = {}
 local layout = require("notification-tools.layout")
 local model = require("notification-tools.state")
+local theme = require("notification-tools.theme")
 local fade_cache = {}
 local style_cache = {}
 local api = vim.api
@@ -9,10 +10,10 @@ local windows = {}
 local frame_highlights
 local function highlight(name)
   if not frame_highlights then
-    return api.nvim_get_hl(0, { name = name, link = false })
+    return theme.definition(name)
   end
   if not frame_highlights[name] then
-    frame_highlights[name] = api.nvim_get_hl(0, { name = name, link = false })
+    frame_highlights[name] = theme.definition(name)
   end
   return vim.deepcopy(frame_highlights[name])
 end
@@ -21,33 +22,7 @@ function M.highlights()
   frame_highlights = nil
   fade_cache = {}
   style_cache = {}
-  for name, link in pairs({
-    Normal = "NormalFloat",
-    Border = "FloatBorder",
-    Title = "Title",
-    MarkdownCode = "String",
-    MarkdownLink = "Underlined",
-    Meta = "Comment",
-    Source = "Comment",
-    Cancelled = "Comment",
-    NotificationNormal = "NotificationToolsNormal",
-    ProgressNormal = "NotificationToolsNormal",
-    ERROR = "DiagnosticError",
-    WARN = "DiagnosticWarn",
-    INFO = "DiagnosticInfo",
-    DEBUG = "Comment",
-    TRACE = "Comment",
-    Progress = "DiagnosticInfo",
-    ProgressTrack = "Comment",
-    Done = "DiagnosticOk",
-  }) do
-    api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, link = link })
-  end
-  local float = api.nvim_get_hl(0, { name = "NormalFloat", link = false })
-  local normal = highlight("Normal")
-  for _, name in ipairs({ "Body", "TaskTitle" }) do
-    api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, fg = float.fg or normal.fg })
-  end
+  theme.highlights()
   if package.loaded["notification-tools.history"] then
     require("notification-tools.history").highlights()
   end

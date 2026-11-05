@@ -308,6 +308,9 @@ end
 ---Release owned resources and restore vim.notify only while still owned.
 function M.teardown()
   generation = generation + 1
+  if package.loaded["notification-tools.theme"] then
+    require("notification-tools.theme").teardown()
+  end
   if package.loaded["notification-tools.picker"] then
     require("notification-tools.picker").close()
   end
@@ -351,12 +354,25 @@ function M.setup(opts)
   scheduler =
     require("notification-tools.scheduler").new(render, math.min(33, resolved.progress.interval))
   group = vim.api.nvim_create_augroup("NotificationTools", { clear = true })
+  local theme = require("notification-tools.theme")
+  local function refresh_highlights()
+    if view_ready then
+      get_view().highlights()
+      request_render()
+    end
+  end
+  theme.setup(refresh_highlights)
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
     callback = function()
-      if view_ready then
-        get_view().highlights()
-        request_render()
+      if not theme.attach() then
+        -- Wait for all ColorScheme overrides, as the shared palette does.
+        local current = generation
+        vim.schedule(function()
+          if generation == current then
+            refresh_highlights()
+          end
+        end)
       end
     end,
   })
@@ -364,6 +380,7 @@ function M.setup(opts)
     group = group,
     pattern = { "ThemeToolsIconsChanged", "ThemeToolsReady" },
     callback = function()
+      theme.attach()
       if package.loaded["notification-tools.layout"] then
         require("notification-tools.layout").reset()
       end

@@ -292,6 +292,8 @@ vim.api.nvim_set_hl(0, "NotificationToolsBody", { fg = "#cdd6f4" })
 vim.api.nvim_set_hl(0, "NotificationToolsSource", { link = "Comment" })
 ```
 
+When theme-tools is already loaded, notifications subscribe to its shared semantic palette, including palette overrides. Text and surfaces use `ui.float_fg`/`ui.float_bg`, metadata uses `ui.muted`, and status colors use `diagnostic.*`. Theme changes update open notifications, progress, and history, including Markdown and fades. Without theme-tools, defaults follow standard highlights and refresh after `ColorScheme` overrides finish. Explicit notification highlight overrides are preserved while defined; reapply them in a `ColorScheme` autocmd when a colorscheme clears highlights. The integration never loads theme-tools itself and unsubscribes on teardown.
+
 Use `NotificationToolsNotificationNormal` and `NotificationToolsProgressNormal` for separate surfaces. The empty bar track uses `NotificationToolsProgressTrack`. Other groups include `Title`, `Body`, `TaskTitle`, `Meta`, `Source`, `ERROR/WARN/INFO/DEBUG/TRACE`, `Progress`, `Done`, `Cancelled`, `MarkdownCode`, and `MarkdownLink`, each prefixed with `NotificationTools`.
 
 ## Integrate with your setup
@@ -394,6 +396,13 @@ sh tests/run.sh
 ```
 
 Requires Neovim, StyLua and Python 3. The suite isolates state/cache/data and covers API ownership, fast events, routing/DND, source-aware merging, task lifetimes, Unicode layout, Markdown styles/conceal, history filters and anchored refresh, result retention, reader timeout handling, and cleanup. Native-message tests include an embedded UI with a separate test-only command-line renderer, native fallback, nested input/confirmation and subscription release.
+
+Theme tests cover no-clear dark/light switches, shared palette overrides, explicit highlight ownership, late attachment and teardown. An embedded RGB UI checks visible notification/task text, Markdown, open history and independent task fades. To run that UI test against existing theme-tools and Catppuccin checkouts without installing dependencies:
+
+```sh
+NOTIFICATION_TOOLS_THEME_TOOLS_ROOT=/path/to/theme-tools.nvim \
+NOTIFICATION_TOOLS_THEME_ROOT=/path/to/catppuccin python3 tests/theme_ui.py
+```
 
 [CI](https://github.com/Jacky-Lzx/notification-tools.nvim/actions/workflows/ci.yml) runs the runtime suite, formatting checks, and LuaLS consumer contracts on **Neovim 0.10.0** and the **latest stable release** for every push and pull request. StyLua and LuaLS versions are pinned in the workflow.
 

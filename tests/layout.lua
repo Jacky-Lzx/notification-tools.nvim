@@ -91,7 +91,9 @@ h.wait(function()
   return #h.floats() == 2
 end)
 vim.cmd("colorscheme default")
-assert(vim.api.nvim_get_hl(0, { name = "NotificationToolsWARN" }).link)
+h.wait(function()
+  return vim.api.nvim_get_hl(0, { name = "NotificationToolsWARN" }).link ~= nil
+end)
 tools.teardown()
 
 -- Expiration is independent of rendering, with pinned notifications retained.

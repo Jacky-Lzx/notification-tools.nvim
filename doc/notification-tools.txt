@@ -330,6 +330,14 @@ NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
 NotificationToolsDone, NotificationToolsProgressTrack. Defaults link to standard theme groups.
 
+When theme-tools is loaded, defaults use its shared palette and palette overrides.
+Text/surfaces use ui.float_fg/ui.float_bg, metadata uses ui.muted, and status
+colors use diagnostic.*. Open notifications, progress and history refresh on
+changes. Standalone defaults refresh after ColorScheme callbacks finish.
+Explicit highlight overrides are preserved while defined; use a ColorScheme
+autocmd to reapply overrides when a colorscheme clears highlights.
+Theme-tools is optional and is never loaded by notification-tools.
+
 See README.md and examples/ for lazy.nvim configuration and consumer adapters.
 
  vim:tw=78:ts=8:noet:ft=help:norl:

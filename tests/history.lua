@@ -108,10 +108,12 @@ tools.dismiss()
 vim.wait(50, function()
   return false
 end, 10)
-vim.cmd.colorscheme("morning")
-assert(vim.api.nvim_get_hl(0, { name = "NotificationToolsBodyMarkdownBold", link = false }).bold)
-vim.cmd.colorscheme("evening")
-assert(vim.api.nvim_get_hl(0, { name = "NotificationToolsBodyMarkdownBold", link = false }).bold)
+for _, theme in ipairs({ "morning", "evening" }) do
+  vim.cmd.colorscheme(theme)
+  h.wait(function()
+    return vim.api.nvim_get_hl(0, { name = "NotificationToolsBodyMarkdownBold", link = false }).bold
+  end)
+end
 h.eq(raw, tools.history()[1].message)
 vim.api.nvim_feedkeys("q", "x", false)
 h.eq(original_win, vim.api.nvim_get_current_win())
