@@ -73,7 +73,8 @@ Search includes timestamps, levels, titles, sources, full messages and details.
 Results use four aligned columns: time, level, title and content. Time/dividers
 are muted, levels use severity colors, and titles are highlighted. Sources and
 details are muted content metadata. Fuzzy matches take priority over these colors.
-Records start newest-first. The preview shows the complete message and details;
+Records start newest-first. The preview colors time, level, title and source,
+and renders inline Markdown styles in the complete message and details.
 <CR> reads the selection, <Esc> cancels. The picker uses a snapshot: reopen it to
 include new messages. Evicted records remain readable from that snapshot.
 Setup/teardown closes the picker and invalidates old callbacks. Confirmation uses
@@ -343,6 +344,10 @@ NotificationToolsMarkdownCode, NotificationToolsMarkdownLink,
 NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
 NotificationToolsDone, NotificationToolsProgressTrack. Defaults link to standard theme groups.
+
+Preview Markdown uses NotificationToolsPreviewBold, NotificationToolsPreviewItalic,
+NotificationToolsPreviewStrike and their combinations (e.g. PreviewBoldItalic).
+These typography overlays inherit the underlying body's or metadata's color.
 
 When theme-tools is loaded, defaults use its shared palette and palette overrides.
 Text/surfaces use ui.float_fg/ui.float_bg, metadata uses ui.muted, and status

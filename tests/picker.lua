@@ -72,14 +72,68 @@ for _, item in ipairs(spec.items) do
   local level = item.level == vim.log.levels.ERROR and "ERROR" or "WARN"
   h.eq(level, groups["NotificationTools" .. level])
 end
-local preview
-spec.previewer({
-  item = spec.items[2],
-  set_lines = function(lines)
-    preview = table.concat(lines, "\n")
-  end,
+local preview_buf = vim.api.nvim_create_buf(false, true)
+local preview_win = vim.api.nvim_open_win(preview_buf, false, {
+  relative = "editor",
+  row = 0,
+  col = 0,
+  width = 60,
+  height = 10,
+  style = "minimal",
 })
-assert(preview:find("first\n中文🙂\n\nfull detail", 1, true))
+local cancel_preview
+local function preview(item)
+  if cancel_preview then
+    cancel_preview()
+  end
+  cancel_preview = spec.previewer({
+    item = item,
+    paint = function(draw, metadata)
+      vim.bo[preview_buf].modifiable = true
+      draw(preview_buf, preview_win)
+      vim.bo[preview_buf].modifiable = false
+      h.eq(item.title, metadata.title)
+    end,
+  })
+  local groups = {}
+  local lines = vim.api.nvim_buf_get_lines(preview_buf, 0, -1, false)
+  for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(preview_buf, -1, 0, -1, { details = true })) do
+    groups[mark[4].hl_group] = lines[mark[2] + 1]:sub(mark[3] + 1, mark[4].end_col)
+  end
+  return table.concat(lines, "\n"), groups
+end
+local body, groups = preview(spec.items[2])
+assert(body:find("first\n中文🙂\n\nfull detail", 1, true))
+h.eq("  WARN  ", groups.NotificationToolsWARN)
+h.eq("Build", groups.NotificationToolsTitle)
+h.eq(" [compiler]", groups.NotificationToolsSource)
+h.eq("中文🙂", groups.NotificationToolsBody)
+h.eq("full detail", groups.NotificationToolsMeta)
+local rich = vim.tbl_extend("force", {}, spec.items[2], {
+  message = "**中文🙂** _italic_ `code` [guide](url)",
+  details = "~~old~~",
+})
+body, groups = preview(rich)
+assert(body:find(rich.message, 1, true), "preview keeps the full Markdown source")
+h.eq("中文🙂", groups.NotificationToolsPreviewBold)
+h.eq("italic", groups.NotificationToolsPreviewItalic)
+h.eq("code", groups.NotificationToolsMarkdownCode)
+h.eq("guide", groups.NotificationToolsMarkdownLink)
+h.eq("old", groups.NotificationToolsPreviewStrike)
+h.eq(2, vim.wo[preview_win].conceallevel)
+rich.markdown = false
+body, groups = preview(rich)
+h.eq(nil, groups.NotificationToolsPreviewBold)
+h.eq(nil, groups.NotificationToolsMarkdownCode)
+h.eq(rich.message, groups.NotificationToolsBody)
+-- Switching entries clears the old level/source/Markdown.
+body, groups = preview(spec.items[1])
+h.eq(nil, groups.NotificationToolsWARN)
+h.eq("  ERROR  ", groups.NotificationToolsERROR)
+cancel_preview() -- An empty result or picker closure also removes our marks.
+h.eq({}, vim.api.nvim_buf_get_extmarks(preview_buf, -1, 0, -1, {}))
+vim.api.nvim_win_close(preview_win, true)
+vim.api.nvim_buf_delete(preview_buf, { force = true })
 -- A cancelled picker must not open a reader or change history.
 picker:close()
 h.eq(3, #tools.history())
@@ -132,5 +186,5 @@ tools.teardown()
 assert(empty.closed)
 h.eq(nil, vim.api.nvim_get_commands({}).NotificationsPick)
 print(
-  "picker: aligned Unicode columns, semantic highlights, full search/preview, cancellation, eviction and stale callbacks passed"
+  "picker: aligned Unicode columns, colored Markdown previews, theme refresh, cancellation, eviction and stale callbacks passed"
 )

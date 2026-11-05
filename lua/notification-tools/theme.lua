@@ -51,6 +51,23 @@ function M.highlights()
   end
   local foreground = M.definition("NormalFloat").fg or M.definition("Normal").fg
   groups.Body, groups.TaskTitle = { fg = foreground }, { fg = foreground }
+  -- Typography overlays inherit the underlying semantic foreground, so preview
+  -- Markdown follows theme changes without copying colors into styled groups.
+  for _, style in ipairs({
+    "Bold",
+    "Italic",
+    "Strike",
+    "BoldItalic",
+    "BoldStrike",
+    "ItalicStrike",
+    "BoldItalicStrike",
+  }) do
+    groups["Preview" .. style] = {
+      bold = style:find("Bold", 1, true) ~= nil,
+      italic = style:find("Italic", 1, true) ~= nil,
+      strikethrough = style:find("Strike", 1, true) ~= nil,
+    }
+  end
   if palette then
     local c = palette
     groups.Normal = { fg = c.ui.float_fg, bg = c.ui.float_bg }

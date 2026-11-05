@@ -1,6 +1,8 @@
 -- Optional selection-tools consumer; notification capture never loads this module.
 local M = {}
 local active
+local api = vim.api
+local preview_ns = api.nvim_create_namespace("notification-tools-preview")
 local names = { [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF" }
 
 local function single_line(value)
@@ -52,14 +54,80 @@ local function columns(items)
 end
 
 local function heading(item)
-  local source = item.source and item.source ~= item.title and (" [" .. item.source .. "]") or ""
-  return os.date("%H:%M:%S", item.time)
-    .. "  "
-    .. names[item.level]
-    .. "  "
-    .. item.title
-    .. source
-    .. ((item.count or 1) > 1 and (" ×" .. item.count) or "")
+  local line, marks = "", {}
+  local level = names[item.level]
+  for _, chunk in ipairs({
+    { os.date("%H:%M:%S", item.time), "Meta" },
+    { "  " .. level .. "  ", level == "OFF" and "Meta" or level },
+    { single_line(item.title), "Title" },
+    {
+      item.source and item.source ~= item.title and (" [" .. single_line(item.source) .. "]") or "",
+      "Source",
+    },
+    { (item.count or 1) > 1 and (" ×" .. item.count) or "", "Meta" },
+  }) do
+    local col = #line
+    line = line .. chunk[1]
+    if #line > col then
+      marks[#marks + 1] = { row = 0, col = col, finish = #line, hl = chunk[2] }
+    end
+  end
+  return line, marks
+end
+
+local function preview(ctx)
+  local item = ctx.item
+  local header, marks = heading(item)
+  local lines = { header, "" }
+  local function content(value, group)
+    value = require("notification-tools.text").clean(value)
+    local offset = #lines
+    vim.list_extend(lines, vim.split(value, "\n", { plain = true }))
+    for _, mark in
+      ipairs(require("notification-tools.markdown").source(value, group, item.markdown))
+    do
+      mark.row = mark.row + offset
+      marks[#marks + 1] = mark
+    end
+  end
+  content(item.message, "Body")
+  if item.details and item.details ~= "" then
+    lines[#lines + 1] = ""
+    content(item.details, "Meta")
+  end
+  -- Publish text and marks together, guarded by selection-tools against stale
+  -- previews. Each entry replaces the previous entry's marks in our namespace.
+  local painted
+  ctx.paint(function(buf, win)
+    painted = buf
+    api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.bo[buf].filetype = item.markdown and "markdown" or "text"
+    vim.bo[buf].syntax = ""
+    pcall(vim.treesitter.stop, buf)
+    api.nvim_buf_clear_namespace(buf, preview_ns, 0, -1)
+    for _, mark in ipairs(marks) do
+      local options =
+        { end_col = mark.finish, hl_group = "NotificationTools" .. mark.hl, priority = 100 }
+      if mark.conceal then
+        options.conceal, options.priority = "", 200
+      end
+      api.nvim_buf_set_extmark(buf, preview_ns, mark.row, mark.col, options)
+      if mark.style then
+        api.nvim_buf_set_extmark(buf, preview_ns, mark.row, mark.col, {
+          end_col = mark.finish,
+          hl_group = "NotificationToolsPreview" .. mark.style,
+          hl_mode = "combine",
+          priority = 101,
+        })
+      end
+    end
+    vim.wo[win].conceallevel, vim.wo[win].concealcursor = 2, "nvic"
+  end, { title = item.title })
+  return function()
+    if painted and api.nvim_buf_is_valid(painted) then
+      api.nvim_buf_clear_namespace(painted, preview_ns, 0, -1)
+    end
+  end
 end
 
 function M.close()
@@ -98,16 +166,7 @@ function M.open(records, on_choice)
       return rows[item].highlights
     end,
     preview = { enabled = true, highlight_line = false, highlight_matches = false },
-    previewer = function(ctx)
-      local item = ctx.item
-      local lines = { heading(item), "" }
-      vim.list_extend(lines, vim.split(item.message, "\n", { plain = true }))
-      if item.details and item.details ~= "" then
-        lines[#lines + 1] = ""
-        vim.list_extend(lines, vim.split(item.details, "\n", { plain = true }))
-      end
-      ctx.set_lines(lines, item.markdown and "markdown" or "text", item.title)
-    end,
+    previewer = preview,
     on_close = function(closed)
       if active == closed then
         active = nil

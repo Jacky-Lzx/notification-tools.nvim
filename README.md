@@ -152,7 +152,8 @@ titles, sources, full message bodies and details, with newest records first.
 Results align into four columns: time, level, title and content. Time and dividers
 are muted, levels use severity colors, and titles are highlighted. Sources and
 details appear as muted content metadata; fuzzy matches stand out over these colors.
-Its preview shows the complete message and details; `<CR>` opens the selected
+Its preview colors the time, level, title and source, and renders inline Markdown
+styles in the complete message and details. `<CR>` opens the selected
 record in the reading window and `<Esc>` cancels. The picker uses an independent
 snapshot, so records evicted while searching remain readable. Reopen it to fetch
 new messages. Setup/teardown closes the picker and invalidates its callbacks.
