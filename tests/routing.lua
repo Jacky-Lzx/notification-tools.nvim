@@ -12,7 +12,12 @@ local function settle(count)
   h.eq(count, #h.floats())
 end
 
-tools.setup({ notify = false, timeout = 100, notification = { dnd = true } })
+tools.setup({
+  notify = false,
+  timeout = 100,
+  notification = { dnd = true },
+  progress = { display_delay = 0 },
+})
 assert(tools.is_dnd())
 local hidden = tools.notify("hidden", "info", { source = "build" })
 local error_id = tools.notify("error", "error")

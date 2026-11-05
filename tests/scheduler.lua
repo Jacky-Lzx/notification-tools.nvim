@@ -7,7 +7,7 @@ local original_now = model.now
 model.now = function()
   return 1000
 end
-local state = model.new(config.resolve({ progress = { stale_timeout = 0 } }))
+local state = model.new(config.resolve({ progress = { stale_timeout = 0, display_delay = 0 } }))
 state.notices.a = { expires = 5000, timeout = 4000 }
 h.eq(3820, model.next_delay(state, { notices = { a = true }, tasks = {} }))
 h.eq(4000, model.next_delay(state, { notices = {}, tasks = {} }))
@@ -19,6 +19,22 @@ state.config.progress.stale_timeout = 300
 h.eq(300, model.next_delay(state, { notices = {}, tasks = {} }))
 state.tasks.a = { done = true, expires = 1120, lifetime = 1500 }
 h.eq(33, model.next_delay(state, { notices = {}, tasks = { a = true } }))
+-- A quiet task must wake at its presentation deadline, even before the view loads.
+state.config.progress.display_delay = 180
+state.config.progress.stale_timeout = 0
+state.tasks.a = { started = 1000, updated = 1000 }
+h.eq(180, model.next_delay(state))
+state.config.progress.enabled = false
+h.eq(nil, model.next_delay(state))
+state.config.progress.enabled = true
+vim.bo.filetype = "NvimTree"
+h.eq(nil, model.next_delay(state))
+vim.bo.filetype = "lua"
+state.config.progress.spinner = { "." }
+model.now = function()
+  return 1200
+end
+h.eq(800, model.next_delay(state, { notices = {}, tasks = { a = true } }))
 model.now = original_now
 
 local renders, render = 0, view.render

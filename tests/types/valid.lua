@@ -3,7 +3,13 @@ local tools = require("notification-tools")
 local opts = {
   notify = true,
   window = { padding = { horizontal = 2 } },
-  progress = { style = "bar", history = "errors", spinner = { "." } },
+  progress = {
+    style = "bar",
+    history = "errors",
+    spinner = { "." },
+    display_delay = 180,
+    error_ttl = 5000,
+  },
   notification = {
     dnd_level = "ERROR",
     filter = function(notice)

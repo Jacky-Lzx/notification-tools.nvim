@@ -159,7 +159,7 @@ tools.setup({
   notify = false,
   timeout = 1000,
   notification = { fade_out = 200 },
-  progress = { done_ttl = 1000, fade_out = 200, stale_timeout = 0 },
+  progress = { display_delay = 0, done_ttl = 1000, fade_out = 200, stale_timeout = 0 },
 })
 vim.api.nvim_set_hl(0, "NotificationToolsNormal", { fg = 0xffffff, bg = 0x101010 })
 vim.api.nvim_set_hl(0, "NotificationToolsTaskTitle", {})

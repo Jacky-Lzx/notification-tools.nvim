@@ -113,7 +113,11 @@ The same active ID returns the same handle. Completed IDs can be reused; old han
 
 ### Progress bars by default
 
-Each task displays a bar below its title. Known percentages fill the track from 0 to 100; tasks without a percentage show a bouncing segment and elapsed time. Successful completion fills the bar; failures and cancellations retain the known progress with their status color.
+Running tasks with a known percentage display a bar below their title. Unknown totals use a compact spinner and task name. Elapsed time appears after one second; running percentages take precedence over elapsed time.
+
+Tasks appear after `progress.display_delay` (180ms by default). Successes completed sooner stay hidden, while failures and cancellations appear immediately. This affects only presentation: `tasks()` and the configured history policy still retain each run. Set `display_delay = 0` for immediate display.
+
+Completed tasks become status rows without bars or percentages. Successful rows omit the default `Completed` detail; useful result messages and error reasons remain visible. Empty title updates preserve the last meaningful name, with message/status text as a display fallback. Equivalent successful results from the same source share a row with a count, while their API snapshots, expiration and history stay independent. Successes and cancellations remain for `done_ttl` (1500ms); failures and timeouts use `error_ttl` (5000ms).
 
 Bars use the available window width. On short or narrow screens they fall back to the compact task row, keeping titles and percentages visible. To use the original spinner-and-text layout everywhere:
 
@@ -121,7 +125,7 @@ Bars use the available window width. On short or narrow screens they fall back t
 require("notification-tools").setup({ progress = { style = "compact" } })
 ```
 
-`progress.style = "bar"` is the default. Fill colors follow `NotificationToolsProgress`, `Done`, `ERROR`, and `Cancelled`; the unfilled track uses `NotificationToolsProgressTrack`.
+`progress.style = "bar"` is the default. Bar fills use `NotificationToolsProgress`; the unfilled track uses `NotificationToolsProgressTrack`. Result icons use `Done`, `ERROR`, and `Cancelled`.
 
 ### Keep failures after the task disappears
 
@@ -250,7 +254,9 @@ require("notification-tools").setup({
     enabled = true, -- API remains available when the panel is disabled.
     style = "bar", -- "compact" restores spinner-and-text rows.
     max_items = 6,
+    display_delay = 180, -- Hide successes completed before this delay.
     done_ttl = 1500,
+    error_ttl = 5000,
     history = "errors", -- "all" or false also supported.
     stale_timeout = 120000,
     interval = 80,

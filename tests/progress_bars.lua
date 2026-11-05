@@ -6,6 +6,10 @@ local tools = require("notification-tools")
 h.eq("bar", config.resolve().progress.style)
 assert(not pcall(config.resolve, { progress = { style = "invalid" } }))
 assert(not pcall(config.resolve, { progress = { style = false } }))
+for _, option in ipairs({ "display_delay", "error_ttl" }) do
+  assert(not pcall(config.resolve, { progress = { [option] = -1 } }))
+  assert(not pcall(config.resolve, { progress = { [option] = 0.5 } }))
+end
 local function task(percentage, done, status)
   return {
     id = "test",
@@ -56,15 +60,14 @@ for _, ambiwidth in ipairs({ "single", "double" }) do
   end
 end
 vim.o.ambiwidth = "single"
-local c =
-  config.resolve({ progress = { spinner = { "." }, show_elapsed = false, stale_timeout = 0 } })
+local c = config.resolve({
+  progress = { spinner = { "." }, show_elapsed = false, stale_timeout = 0, display_delay = 0 },
+})
 local pending = task()
 local first = layout.progress({ pending }, c, 44, 12, nil, 0)
 local next_frame = layout.progress({ pending }, c, 44, 12, nil, 80)
-assert(
-  bar_line(first) ~= bar_line(next_frame),
-  "unknown percentage must animate even with a single spinner frame"
-)
+h.eq(nil, bar_line(first))
+h.eq(first, next_frame)
 assert(
   not table.concat(first.lines, "\n"):find("%%"),
   "indeterminate progress must not fabricate a percentage"
@@ -75,42 +78,73 @@ local original = model.now
 model.now = function()
   return 0
 end
-h.eq(80, model.next_delay(state, { notices = {}, tasks = { test = true }, bars = { test = true } }))
 h.eq(nil, model.next_delay(state, { notices = {}, tasks = { test = true }, bars = {} }))
 model.now = original
-local complete =
-  assert(bar_line(layout.progress({ task(nil, true, "success") }, c, 44, 12, nil, 0)))
-h.eq(0, count(complete, "─"))
-for _, status in ipairs({ "error", "cancelled" }) do
+for _, status in ipairs({ "success", "error", "cancelled" }) do
   local ended = task(50, true, status)
-  local plan = layout.progress({ ended }, c, 44, 12, nil, 0)
-  h.eq(bar_line(plan), bar_line(layout.progress({ ended }, c, 44, 12, nil, 80)))
-  local colored = false
-  for _, mark in ipairs(plan.marks) do
-    local value = plan.lines[mark.row + 1]:sub(mark.col + 1, mark.finish)
-    if value:find("━", 1, true) then
-      h.eq(status == "error" and "ERROR" or "Cancelled", mark.hl)
-      colored = true
-    end
+  ended.finished = 1250
+  ended.message = status == "success" and "Completed" or "Reason"
+  local plan = layout.progress({ ended }, c, 44, 12, nil, 1300)
+  h.eq(nil, bar_line(plan))
+  local content = table.concat(plan.lines, "\n")
+  assert(content:find("Build", 1, true))
+  assert(not content:find("50%%") and not content:find("100%%"))
+  if status == "success" then
+    h.eq(2, #plan.lines)
+    assert(not content:find("Completed", 1, true))
+  else
+    assert(content:find("Reason", 1, true))
   end
-  assert(colored)
 end
 local compact = config.resolve({ progress = { style = "compact" } })
 h.eq(nil, bar_line(layout.progress({ task(50) }, compact, 44, 12, nil, 0)))
 h.eq(nil, bar_line(layout.progress({ task(50) }, c, 44, 1, nil, 0)))
+-- Group equivalent successful results before applying row limits, without
+-- merging producers or hiding distinct completion messages.
+local duplicates = {}
+for i = 1, 8 do
+  local item = task(nil, true, "success")
+  item.id, item.title, item.message, item.finished = i, "", "Completed", 2000
+  duplicates[#duplicates + 1] = item
+end
+local grouped = layout.progress(duplicates, c, 44, 2, nil, 2100)
+h.eq(2, #grouped.lines)
+h.eq(8, grouped.displayed)
+assert(table.concat(grouped.lines, "\n"):find("Completed ×8", 1, true))
+for i = 1, 8 do
+  assert(grouped.task_ids[i])
+end
+duplicates[2].message = "Document ready"
+local distinct = layout.progress(duplicates, c, 44, 8, nil, 2100)
+assert(table.concat(distinct.lines, "\n"):find("Document ready", 1, true))
+assert(table.concat(distinct.lines, "\n"):find("Completed ×7", 1, true))
+duplicates[2].message, duplicates[2].source = "Completed", "other"
+local ungrouped = config.resolve({ progress = { group_by_source = false } })
+local separate = layout.progress(duplicates, ungrouped, 44, 8, nil, 2100)
+h.eq(2, #separate.lines)
+assert(table.concat(separate.lines, "\n"):find("Completed ×7", 1, true))
+local timed = task(100, true, "success")
+timed.finished, timed.message = 1260, "Completed"
+local duration =
+  table.concat(layout.progress({ timed }, config.resolve(), 44, 8, nil, 5000).lines, "\n")
+assert(duration:find("1.3s", 1, true))
+assert(not duration:find("100%%"))
 -- Public task semantics remain unchanged, including unknown completion percentages.
 tools.setup({ notify = false, progress = { spinner = { "." }, show_elapsed = false } })
-local handle = tools.progress({ title = "Unknown total" })
+local handle = tools.progress({ title = "Known total", percentage = 25 })
 h.wait(function()
   return #h.floats() == 1
 end)
 local before = assert(bar_line(h.floats()[1]))
+handle:update({ percentage = 75 })
 h.wait(function()
   return bar_line(h.floats()[1]) ~= before
 end)
 handle:finish()
+h.eq(100, tools.tasks()[1].percentage)
+tools.progress({ title = "Unknown total" }):finish()
 h.eq(nil, tools.tasks()[1].percentage)
 tools.teardown()
 print(
-  "progress bars: default style, proportional fill, unknown animation/deadlines, status colors and compact fallback passed"
+  "progress bars: proportional fill, compact unknown/completed tasks, useful results and narrow fallback passed"
 )

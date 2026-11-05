@@ -81,7 +81,7 @@ def run(env):
             model.now = function() return now end
             tools = require('notification-tools')
             tools.setup({ notify = false, timeout = 0,
-              progress = { stale_timeout = 0, done_ttl = 1000, fade_out = 200 } })
+              progress = { display_delay = 0, stale_timeout = 0, done_ttl = 1000, fade_out = 200 } })
             tools.notify('NoticeWord **BoldWord**', 'warn', {title = 'NoticeTitle', details = 'DetailWord'})
             done = tools.progress({title = 'TaskWord', percentage = 50, message = 'TaskDetail'})
             tools.progress({title = 'ActiveWord', percentage = 20})

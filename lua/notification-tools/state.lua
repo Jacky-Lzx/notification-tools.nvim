@@ -232,7 +232,12 @@ function M.update_task(task, opts)
   end
   for _, key in ipairs({ "title", "message", "source" }) do
     if opts[key] ~= nil then
-      task[key] = M.text(opts[key])
+      local value = M.text(opts[key])
+      -- Some producers send an empty title on begin/report. Keep the last
+      -- meaningful name rather than replacing it with an invisible heading.
+      if key ~= "title" or value:find("%S") then
+        task[key] = value
+      end
     end
   end
   if percentage ~= nil then
@@ -304,6 +309,15 @@ function M.tasks(state)
     result[#result + 1] = copy
   end
   return result
+end
+
+-- Delay presentation only: API snapshots and history always retain short tasks.
+function M.task_visible(task, config, now)
+  now = now or M.now()
+  if task.done and task.status ~= "success" then
+    return true
+  end
+  return (task.finished or now) - (task.started or now) >= config.progress.display_delay
 end
 
 function M.history(state, opts)
@@ -382,8 +396,9 @@ function M.finish_task(state, task, message, status)
   if status == "success" and task.percentage then
     task.percentage = 100
   end
-  task.expires = now + state.config.progress.done_ttl
-  task.lifetime = state.config.progress.done_ttl
+  task.lifetime = status == "error" and state.config.progress.error_ttl
+    or state.config.progress.done_ttl
+  task.expires = now + task.lifetime
   if
     state.config.history_size == 0
     or task.history == false
@@ -456,23 +471,25 @@ function M.next_delay(state, visible)
     expiry(notice, state.config.notification.fade_out, visible.notices[id])
   end
   local p = state.config.progress
+  local can_display = p.enabled and not vim.tbl_contains(p.avoid, vim.bo.filetype)
   for id, task in pairs(state.tasks) do
     local shown = visible.tasks[id]
     expiry(task, p.fade_out, shown)
     if not task.done then
+      local ready = task.started + p.display_delay
+      if can_display and now < ready then
+        wake(ready)
+      end
       if p.stale_timeout > 0 then
         wake(task.updated + p.stale_timeout)
       end
       if shown then
-        if
-          #p.spinner > 1
-          or (p.style == "bar" and task.percentage == nil and visible.bars and visible.bars[id])
-        then
+        if #p.spinner > 1 then
           wake((math.floor(now / p.interval) + 1) * p.interval)
         end
         if p.show_elapsed and task.percentage == nil then
           local age = math.max(0, now - task.started)
-          local step = age < 60000 and 100 or age < 3600000 and 1000 or 60000
+          local step = age < 1000 and 1000 or age < 60000 and 100 or age < 3600000 and 1000 or 60000
           wake(task.started + (math.floor(age / step) + 1) * step)
         end
       end

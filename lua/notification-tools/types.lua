@@ -54,14 +54,16 @@
 ---@class notification_tools.ProgressConfig
 ---@field enabled? boolean Disable only the panel, keeping the task API available.
 ---@field style? notification_tools.ProgressStyle Defaults to bar; compact uses spinner/text rows.
----@field max_items? integer Maximum displayed tasks.
----@field done_ttl? integer Result lifetime in milliseconds.
+---@field max_items? integer Maximum displayed task rows, after grouping equivalent results.
+---@field display_delay? integer Delay in milliseconds; successes completed sooner stay hidden. Defaults to 180.
+---@field done_ttl? integer Success/cancellation lifetime in milliseconds.
+---@field error_ttl? integer Failure/timeout lifetime in milliseconds. Defaults to 5000.
 ---@field history? notification_tools.HistoryPolicy Defaults to errors.
 ---@field stale_timeout? integer Milliseconds without updates before timeout; 0 disables.
 ---@field interval? integer Animation interval in milliseconds, at least 16.
 ---@field group_by_source? boolean
----@field show_elapsed? boolean Show elapsed time when percentage is absent.
----@field fade_out? integer Fade duration within done_ttl, in milliseconds.
+---@field show_elapsed? boolean Show durations >= 1 second; running percentages take precedence.
+---@field fade_out? integer Fade duration within the result lifetime, in milliseconds.
 ---@field window? notification_tools.WindowConfig Overrides shared window settings.
 ---@field avoid? string[] Current-buffer filetypes that hide the panel.
 ---@field spinner? string[] Nonempty animation frames; lists replace defaults.

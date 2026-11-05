@@ -12,7 +12,7 @@ local function expire()
   end, 10)
 end
 
-tools.setup({ notify = false, progress = { done_ttl = 0, stale_timeout = 100 } })
+tools.setup({ notify = false, progress = { done_ttl = 0, error_ttl = 0, stale_timeout = 100 } })
 tools.progress({ title = "Success" }):finish()
 tools.progress({ title = "Cancelled" }):cancel()
 h.eq(0, #tools.history())

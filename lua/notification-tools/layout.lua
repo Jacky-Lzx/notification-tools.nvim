@@ -283,8 +283,8 @@ local function elapsed(task, now)
   return ("%.1fs"):format(seconds)
 end
 
--- Build a determinate fill or a bouncing segment without inventing a percentage.
-local function bar(task, width, now, interval)
+-- Completed tasks and unknown totals use a status row, without a decorative bar.
+local function bar(task, width)
   local filled, empty = "━", "─"
   local unit = math.max(cells(filled), cells(empty))
   local slots = math.floor(width / unit)
@@ -293,22 +293,39 @@ local function bar(task, width, now, interval)
   end
   filled = filled .. string.rep(" ", unit - cells(filled))
   empty = empty .. string.rep(" ", unit - cells(empty))
-  local first, count = 0, 0
-  if task.done and task.status == "success" then
-    count = slots
-  elseif task.percentage ~= nil then
-    count = math.floor(slots * task.percentage / 100)
-  elseif not task.done then
-    count = math.max(1, math.floor(slots / 4))
-    local travel = slots - count
-    local phase = math.floor(now / interval) % (2 * travel)
-    first = phase <= travel and phase or 2 * travel - phase
-  end
+  local count = math.floor(slots * task.percentage / 100)
   return {
-    { string.rep(empty, first), "ProgressTrack" },
     { string.rep(filled, count), status(task) },
-    { string.rep(empty, slots - first - count), "ProgressTrack" },
+    { string.rep(empty, slots - count), "ProgressTrack" },
   }
+end
+
+local function task_text(task)
+  local title = vim.trim(inline(task.title))
+  local message = vim.trim(inline(task.message))
+  local fallback = task.done
+      and (task.status == "error" and "Failed" or task.status == "cancelled" and "Cancelled" or "Completed")
+    or "Working"
+  if task.done and task.status == "success" and message == "Completed" then
+    message = ""
+  end
+  if title == "" or title == "Working" then
+    title = message ~= "" and message or fallback
+  end
+  if message == title then
+    message = ""
+  end
+  return title, message
+end
+
+local function task_meta(task, config, now)
+  if not task.done and task.percentage ~= nil then
+    return ("%d%%"):format(task.percentage)
+  end
+  if config.show_elapsed and (task.finished or now) - (task.started or now) >= 1000 then
+    return elapsed(task, now)
+  end
+  return ""
 end
 
 local function progress(tasks, config, maximum, height, minimum, now)
@@ -321,10 +338,6 @@ local function progress(tasks, config, maximum, height, minimum, now)
   local width = math.min(maximum, c.max_width)
   local px, py = padding(c, width, height, 1)
   local available = height - py * 2
-  local count = math.min(#tasks, p.max_items, available)
-  if #tasks > count and available > 1 then
-    count = math.min(count, available - 1)
-  end
   local groups, lookup = {}, {}
   local frames = p.spinner
   local frame = frames[math.floor(now / p.interval) % #frames + 1]
@@ -344,12 +357,10 @@ local function progress(tasks, config, maximum, height, minimum, now)
       icon_width = math.max(icon_width, cells(inline(icon)))
     end
   end
-  local natural = c.min_width - c.padding.horizontal * 2
-  for i = 1, count do
-    local task = tasks[i]
+  for _, task in ipairs(tasks) do
     local source = p.group_by_source and inline(task.source) or ""
     if not lookup[source] then
-      lookup[source] = { source = source, tasks = {} }
+      lookup[source] = { source = source, tasks = {}, completed = {} }
       groups[#groups + 1] = lookup[source]
     end
     local icon = task.done
@@ -364,21 +375,83 @@ local function progress(tasks, config, maximum, height, minimum, now)
     elseif mode == "ascii" or mode == "none" then
       icon = require("notification-tools.icons").get("ui", "loading", icon)
     end
-    local meta = task.percentage ~= nil and ("%d%%"):format(task.percentage)
-      or (p.show_elapsed and elapsed(task, now) or "")
-    lookup[source].tasks[#lookup[source].tasks + 1] = { task = task, icon = icon, meta = meta }
-    natural = math.max(
-      natural,
-      cells(source),
-      icon_width
-        + 1
-        + cells(inline(task.title))
-        + (meta ~= "" and math.max(6, cells(meta)) + 2 or 0)
-    )
-    if task.message ~= "" then
-      natural = math.max(natural, icon_width + 1 + cells(inline(task.message)))
+    local title, message = task_text(task)
+    local group = lookup[source]
+    local duplicates
+    -- Group only equivalent successful results from the same producer. Their
+    -- individual IDs, lifetimes and history records remain independent.
+    local producer = inline(task.source)
+    if task.done and task.status == "success" and producer ~= "" then
+      group.completed[producer] = group.completed[producer] or {}
+      local titles = group.completed[producer]
+      titles[title] = titles[title] or {}
+      duplicates = titles[title]
+    end
+    local entry = duplicates and duplicates[message]
+    if entry then
+      entry.ids[#entry.ids + 1] = task.id
+      entry.meta = ""
+      -- Fade the result with the newest member, while older members expire.
+      if (task.expires or 0) > (entry.task.expires or 0) then
+        entry.task = task
+      end
+    else
+      entry = {
+        task = task,
+        title = title,
+        message = message,
+        icon = icon,
+        meta = task_meta(task, p, now),
+        ids = { task.id },
+      }
+      group.tasks[#group.tasks + 1] = entry
+      if duplicates then
+        duplicates[message] = entry
+      end
     end
   end
+  local total = 0
+  for _, group in ipairs(groups) do
+    total = total + #group.tasks
+  end
+  local count = math.min(total, p.max_items, available)
+  if total > count and available > 1 then
+    count = math.min(count, available - 1)
+  end
+  local natural = c.min_width - c.padding.horizontal * 2
+  local selected, displayed, task_ids = 0, 0, {}
+  local selected_groups = {}
+  for _, group in ipairs(groups) do
+    local entries = {}
+    for _, entry in ipairs(group.tasks) do
+      if selected >= count then
+        break
+      end
+      selected = selected + 1
+      displayed = displayed + #entry.ids
+      for _, id in ipairs(entry.ids) do
+        task_ids[id] = true
+      end
+      if #entry.ids > 1 then
+        entry.title = entry.title .. " ×" .. #entry.ids
+      end
+      entries[#entries + 1] = entry
+      natural = math.max(
+        natural,
+        cells(group.source),
+        icon_width
+          + 1
+          + cells(entry.title)
+          + (entry.meta ~= "" and math.max(6, cells(entry.meta)) + 2 or 0),
+        entry.message ~= "" and icon_width + 1 + cells(entry.message) or 0
+      )
+    end
+    if #entries > 0 then
+      group.tasks = entries
+      selected_groups[#selected_groups + 1] = group
+    end
+  end
+  groups = selected_groups
   width = width_for(c, maximum, minimum, natural + c.padding.horizontal * 2)
   px, py = padding(c, width, height, 1)
   local inner = width - px * 2
@@ -405,7 +478,7 @@ local function progress(tasks, config, maximum, height, minimum, now)
         if inner - cells(prefix) - reserved < 2 then
           meta, reserved = "", 0
         end
-        local title = M.clip(inline(task.title), inner - cells(prefix) - reserved)
+        local title = M.clip(entry.title, inner - cells(prefix) - reserved)
         result[#result + 1] = {
           item = task,
           chunks = {
@@ -415,9 +488,9 @@ local function progress(tasks, config, maximum, height, minimum, now)
             { meta, "Meta" },
           },
         }
-        if bars then
+        if bars and not task.done and task.percentage ~= nil then
           local indent = math.min(icon_width > 0 and icon_width + 1 or 0, inner - 1)
-          local chunks = bar(task, inner - indent, now, p.interval)
+          local chunks = bar(task, inner - indent)
           if chunks then
             result[#result + 1] = {
               item = task,
@@ -426,21 +499,24 @@ local function progress(tasks, config, maximum, height, minimum, now)
             }
           end
         end
-        if details and task.message ~= "" then
+        if details and entry.message ~= "" then
           local indent = math.min(icon_width > 0 and icon_width + 1 or 0, inner - 1)
           result[#result + 1] = {
             item = task,
             chunks = {
               { string.rep(" ", indent) },
-              { M.clip(task.message, inner - indent), "Meta" },
+              {
+                M.clip(entry.message, inner - indent),
+                task.status == "error" and "ERROR" or "Meta",
+              },
             },
           }
         end
       end
     end
-    if count < #tasks and available > 1 then
+    if displayed < #tasks and available > 1 then
       result[#result + 1] =
-        { chunks = { { M.clip("… +" .. (#tasks - count) .. " tasks", inner), "Meta" } } }
+        { chunks = { { M.clip("… +" .. (#tasks - displayed) .. " tasks", inner), "Meta" } } }
     end
     return result
   end
@@ -450,7 +526,7 @@ local function progress(tasks, config, maximum, height, minimum, now)
     content = rows(true, false, true, bars)
   end
   if #content > available then
-    content = rows(false, false, true, bars)
+    content = rows(true, false, true, false)
   end
   if #content > available then
     content = rows(false, false, true, false)
@@ -472,7 +548,8 @@ local function progress(tasks, config, maximum, height, minimum, now)
   for _ = 1, py do
     blank(result)
   end
-  result.displayed = count
+  result.displayed = displayed
+  result.task_ids = task_ids
   return result
 end
 
@@ -485,8 +562,7 @@ function M.progress(tasks, config, maximum, height, minimum, now)
   for _, name in ipairs({ "check", "close", "cancelled", "loading" }) do
     key[#key + 1] = require("notification-tools.icons").get("ui", name, "")
   end
-  for i = 1, math.min(#tasks, p.max_items, math.max(0, height)) do
-    local task = tasks[i]
+  for _, task in ipairs(tasks) do
     key[#key + 1] = {
       task,
       task.title,
@@ -496,10 +572,7 @@ function M.progress(tasks, config, maximum, height, minimum, now)
       task.status or false,
       task.percentage or false,
       not task.done and p.spinner[math.floor(now / p.interval) % #p.spinner + 1] or "",
-      not task.done and p.style == "bar" and task.percentage == nil and math.floor(
-        now / p.interval
-      ) or false,
-      task.percentage == nil and p.show_elapsed and elapsed(task, now) or "",
+      task_meta(task, p, now),
     }
   end
   local cached = progress_plans[config]

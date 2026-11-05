@@ -234,8 +234,10 @@ function M.render(state)
   local notices = vim.tbl_filter(function(notice)
     return notice.display ~= false
   end, model.sorted(state.notices))
-  local tasks = model.sorted(state.tasks, true)
   local used, now = {}, model.now()
+  local tasks = vim.tbl_filter(function(task)
+    return model.task_visible(task, config, now)
+  end, model.sorted(state.tasks, true))
   local visible = { notices = {}, tasks = {}, bars = {} }
   if
     config.progress.enabled
@@ -259,9 +261,7 @@ function M.render(state)
       draw("progress", plan, row, p, nil, config.progress.fade_out, now)
       used.progress = true
       visible.bars = plan.bar_tasks
-      for i = 1, plan.displayed do
-        visible.tasks[tasks[i].id] = true
-      end
+      visible.tasks = plan.task_ids
       bottom = math.min(bottom, row - math.max(n.gap, p.gap))
     end
   end

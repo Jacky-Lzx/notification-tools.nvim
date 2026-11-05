@@ -6,7 +6,7 @@ model.now = function()
   return now
 end
 vim.o.columns, vim.o.lines = 120, 40
-tools.setup({ notify = false, timeout = 1000, progress = { stale_timeout = 0 } })
+tools.setup({ notify = false, timeout = 1000, progress = { stale_timeout = 0, display_delay = 0 } })
 local id = tools.notify("Follow the active tab")
 local task = tools.progress({ title = "Build", percentage = 20 })
 h.wait(function()

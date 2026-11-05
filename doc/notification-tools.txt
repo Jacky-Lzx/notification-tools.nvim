@@ -193,14 +193,22 @@ progress(opts) returns a handle with id and the following methods:
   :cancel(message?)        Mark cancelled; does not cancel the producer's work.
   :is_active()             Whether updates are still accepted.
 
-progress.style="bar" is the default: a width-adaptive bar below each task title.
-Known percentages fill the track; unknown totals show a bouncing segment without
-inventing a percentage. Success fills the bar; errors/cancellations retain known
-progress with their status color. Short/narrow screens omit bars before hiding
-tasks. Set progress.style="compact" for the original spinner/text presentation.
-The unfilled track uses NotificationToolsProgressTrack; the fill uses existing
-Progress/Done/ERROR/Cancelled groups. Waiting bars animate at progress.interval,
-including when progress.spinner contains just one frame.
+progress.style="bar" is the default: running tasks with a known percentage use
+a width-adaptive bar. Unknown totals use a spinner and task name. Completed tasks
+use status rows without bars or percentages; successful rows omit the default
+"Completed" detail. Useful result messages and error reasons remain visible.
+Elapsed time appears after one second; running percentages take precedence.
+Short/narrow screens omit bars before hiding task text. Set
+progress.style="compact" for spinner/text rows everywhere. The unfilled track
+uses NotificationToolsProgressTrack; the fill uses NotificationToolsProgress.
+Result icons use Done/ERROR/Cancelled groups.
+
+Tasks appear after progress.display_delay (180ms). Successes completed sooner
+stay hidden; failures and cancellations appear immediately. Set display_delay=0
+for immediate presentation. API snapshots and history still retain every run.
+Blank title updates preserve the last meaningful name. Missing names use message
+or status text for display. Equivalent successful results from the same source
+share a counted row; their IDs, expiration and history remain independent.
 
 percentage is clamped to integer 0..100. Omitted fields retain their values.
 The same active ID returns the same handle. Ended IDs may be reused. Old handles
@@ -210,8 +218,9 @@ and task methods are safe from libuv callbacks. Window changes are scheduled
 onto the main loop and do not take focus.
 
 tasks() returns newest-first task snapshots. clear_tasks() clears all tasks.
-Completed results remain for progress.done_ttl milliseconds. Silent tasks time
-out after progress.stale_timeout milliseconds; 0 disables this timeout.
+Success/cancellation results remain for progress.done_ttl milliseconds. Failures
+and timeouts use progress.error_ttl instead. Silent tasks time out after
+progress.stale_timeout milliseconds; 0 disables this timeout.
 
 TASK RESULTS                                   *notification-tools-task-history*
 
@@ -270,13 +279,15 @@ progress.window          Inherits window (rounded border), with min_width=24,
 *.window.padding         { horizontal = cells, vertical = lines }.
 progress.enabled=true   Show the task panel; API remains available when false.
 progress.style="bar"    Default progress bars; "compact" uses spinner/text rows.
-progress.max_items=6     Maximum visible task entries, excluding source labels.
-progress.done_ttl=1500   Result lifetime in milliseconds.
+progress.max_items=6     Maximum visible entries after grouping, excluding labels.
+progress.display_delay=180 Delay presentation; shorter successes stay hidden.
+progress.done_ttl=1500   Success/cancellation lifetime in milliseconds.
+progress.error_ttl=5000  Failure/timeout lifetime in milliseconds.
 progress.history="errors" Failure/timeout history; "all" or false also supported.
 progress.group_by_source=true       One source label per task group.
-progress.show_elapsed=true          Elapsed time when percentage is absent.
-progress.fade_out=240               Fade finished tasks during the final done_ttl
-                                   milliseconds, leaving active siblings intact.
+progress.show_elapsed=true          Durations >=1s; running percentages take priority.
+progress.fade_out=240               Fade during the final result lifetime,
+                                   leaving active siblings intact.
 progress.stale_timeout=120000 Time without updates before timeout; 0 disables.
 progress.interval=80    Refresh interval in milliseconds (minimum 16).
 progress.avoid          Current-window filetypes that hide progress.
@@ -300,7 +311,7 @@ elapsed-time changes schedule their own frames; hidden task panels do not animat
 Producer bursts are rate-limited for painting while state updates remain immediate.
 Changed task rows retain unrelated text and highlight extmarks.
 
-Fade durations of 0 disable fading. Fades do not extend timeout or done_ttl;
+Fade durations of 0 disable fading. Fades do not extend timeout or result lifetime;
 pinned notices never fade. True-color terminals provide the best color blending.
 Lists replace defaults. Screen space is shared without overlap between the two
 areas. Hidden notifications still expire; full messages remain in history.

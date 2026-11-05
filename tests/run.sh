@@ -14,6 +14,7 @@ for suite in tests/startup_lazy.lua tests/core.lua tests/routing.lua tests/messa
 done
 python3 tests/messages_ui.py
 python3 tests/theme_ui.py
+python3 tests/progress_ui.py
 if [ -n "${NOTIFICATION_TOOLS_NOICE_ROOT:-}" ] && [ -n "${NOTIFICATION_TOOLS_NUI_ROOT:-}" ]; then
   nvim --headless -n -u NONE -i NONE --noplugin -l tests/noice.lua
 fi

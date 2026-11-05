@@ -22,9 +22,18 @@ local function wants_view()
       return true
     end
   end
-  return state.config.progress.enabled
-    and next(state.tasks) ~= nil
+  if
+    state.config.progress.enabled
     and not vim.tbl_contains(state.config.progress.avoid, vim.bo.filetype)
+  then
+    local now = model.now()
+    for _, task in pairs(state.tasks) do
+      if model.task_visible(task, state.config, now) then
+        return true
+      end
+    end
+  end
+  return false
 end
 
 local function render()

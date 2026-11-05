@@ -9,7 +9,7 @@ end
 tools.setup({
   history_size = 3,
   timeout = 45,
-  progress = { done_ttl = 30, stale_timeout = 60, interval = 16 },
+  progress = { done_ttl = 30, error_ttl = 30, stale_timeout = 60, interval = 16 },
 })
 assert(vim.notify ~= original)
 assert(not pcall(tools.setup, { timeout = -1 }))

@@ -35,7 +35,7 @@ progress(3, 1, "begin", { title = "Ignore" })
 progress(99, 1, "begin")
 progress(1, "partial", "not-workdone", { answer = 42 })
 h.eq(3, #tools.tasks())
-progress(1, 1, "report", { percentage = 42, message = "Checking" })
+progress(1, 1, "report", { title = "  ", percentage = 42, message = "Checking" })
 local found
 for _, task in ipairs(tools.tasks()) do
   if task.id == "lsp:1:number:1" then
