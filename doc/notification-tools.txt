@@ -70,6 +70,9 @@ selection-tools.nvim picker. pick_history(opts?) accepts the same HistoryFilters
 as history()/show_history() and returns the picker. Selection-tools loads only on
 use; the other APIs do not require it. Missing selection-tools raises an error.
 Search includes timestamps, levels, titles, sources, full messages and details.
+Results use four aligned columns: time, level, title and content. Time/dividers
+are muted, levels use severity colors, and titles are highlighted. Sources and
+details are muted content metadata. Fuzzy matches take priority over these colors.
 Records start newest-first. The preview shows the complete message and details;
 <CR> reads the selection, <Esc> cancels. The picker uses a snapshot: reopen it to
 include new messages. Evicted records remain readable from that snapshot.

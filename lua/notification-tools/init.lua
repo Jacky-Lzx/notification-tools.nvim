@@ -241,6 +241,9 @@ end
 function M.pick_history(opts)
   local records = M.history(opts)
   local current = generation
+  -- History-only records may never have initialized a popup's colors. Mark the
+  -- presentation ready here too so open picker colors follow later theme changes.
+  get_view()
   return require("notification-tools.picker").open(records, function(item)
     if item and current == generation then
       -- An evicted record remains readable from the picker's independent snapshot.
