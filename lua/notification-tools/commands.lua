@@ -1,7 +1,7 @@
 local M = {}
 local owned = {}
 local function create(name, callback, opts)
-  vim.api.nvim_create_user_command(name, callback, opts)
+  require("notification-tools.user_command").create(name, callback, opts)
   owned[name] = vim.api.nvim_get_commands({})[name].definition
 end
 
@@ -9,7 +9,7 @@ function M.clear()
   local current = vim.api.nvim_get_commands({})
   for name, definition in pairs(owned) do
     if current[name] and current[name].definition == definition then
-      vim.api.nvim_del_user_command(name)
+      require("notification-tools.user_command").delete(name)
     end
   end
   owned = {}
