@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+nvim --headless -u NONE -i NONE --noplugin -l tests/setup_contract.lua
 nvim --headless -u NONE -i NONE --noplugin -l tests/command_ownership.lua
 export TMPDIR="${TMPDIR:-/tmp}"
 test_root=$(mktemp -d "$TMPDIR/notification-tools-tests.XXXXXX")

@@ -356,9 +356,16 @@ function M.teardown()
   view_ready = false
 end
 
+---Release runtime resources; subsequent explicit use starts from defaults.
+function M.dispose()
+  M.teardown()
+end
+
 ---@param opts? notification_tools.Config
 ---@return notification_tools.API
 function M.setup(opts)
+  assert(opts == nil or type(opts) == "table", "notification-tools.nvim: setup expects a table")
+  opts = vim.deepcopy(opts or {})
   -- Validate before replacing a working instance.
   local resolved = config.resolve(opts)
   M.teardown()
