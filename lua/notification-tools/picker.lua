@@ -221,6 +221,7 @@ function M.open(records, on_choice)
           return rows[item].title
         end,
         hl = "NotificationToolsTitle",
+        min_width = 16,
         max_width = 30,
         priority = 80,
       },

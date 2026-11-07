@@ -58,6 +58,22 @@ p:set_query("full detail")
 assert(#p.matches == 1)
 p:close()
 assert(#tools.history() == 2 and #api.nvim_list_wins() == 1)
+-- Long messages must not consume the title at ordinary terminal widths.
+selection.setup({ layout = { width = 0.8 }, matcher = { backend = "native" } })
+vim.o.columns, vim.o.lines = 120, 36
+tools.clear_history()
+tools.notify(
+  "narrow-match " .. string.rep("long body ", 80),
+  "warn",
+  { title = "Compiler warning", source = "compiler" }
+)
+local narrow = tools.pick_history()
+ready(narrow)
+assert(spans(narrow, "NotificationToolsTitle"):find("Compiler warning", 1, true))
+narrow:set_query("narrow-match")
+assert(#narrow.matches == 1 and narrow:current().title == "Compiler warning")
+assert(spans(narrow, "NotificationToolsTitle"):find("Compiler warning", 1, true))
+narrow:close()
 tools.teardown()
 print(
   "Notification components: shared time style, semantic colors, Unicode, metadata search and cancellation passed"
