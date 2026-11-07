@@ -1,27 +1,4 @@
 #!/bin/sh
 set -eu
-cd "$(dirname "$0")/.."
-nvim --headless -u NONE -i NONE --noplugin -n -l tests/health.lua
-nvim --headless -u NONE -i NONE --noplugin -l tests/setup_contract.lua
-nvim --headless -u NONE -i NONE --noplugin -l tests/command_ownership.lua
-export TMPDIR="${TMPDIR:-/tmp}"
-test_root=$(mktemp -d "$TMPDIR/notification-tools-tests.XXXXXX")
-trap 'rm -rf "$test_root"' EXIT HUP INT TERM
-export XDG_STATE_HOME="$test_root/state"
-export XDG_CACHE_HOME="$test_root/cache"
-export XDG_DATA_HOME="$test_root/data"
-export NVIM_LOG_FILE="$test_root/nvim.log"
-export PYTHONDONTWRITEBYTECODE=1
-for suite in tests/startup_lazy.lua tests/core.lua tests/routing.lua tests/messages.lua tests/integrations.lua tests/layout.lua tests/tabs.lua tests/performance.lua tests/progress_bars.lua tests/scheduler.lua tests/incremental.lua tests/architecture.lua tests/styles.lua tests/theme.lua tests/markdown.lua tests/table.lua tests/spans.lua tests/history.lua tests/browsing.lua tests/task_history.lua tests/reading.lua tests/picker.lua; do
-  nvim --headless -n -u NONE -i NONE --noplugin -l "$suite"
-done
-python3 tests/messages_ui.py
-python3 tests/theme_ui.py
-python3 tests/progress_ui.py
-if [ -n "${NOTIFICATION_TOOLS_NOICE_ROOT:-}" ] && [ -n "${NOTIFICATION_TOOLS_NUI_ROOT:-}" ]; then
-  nvim --headless -n -u NONE -i NONE --noplugin -l tests/noice.lua
-fi
-if [ -n "${NOTIFICATION_TOOLS_LAZY_ROOT:-}" ]; then
-  nvim --headless -n -u NONE -i NONE --noplugin -l tests/lazy.lua
-fi
-stylua --check lua tests examples scripts
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+exec python3 "$root/tests/run.py" "$@"

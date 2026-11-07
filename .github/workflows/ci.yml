@@ -58,6 +58,12 @@ jobs:
           stylua --version
           lua-language-server --version
       - name: Runtime and formatting checks
-        run: sh tests/run.sh
+        run: sh tests/run.sh --output "$RUNNER_TEMP/test-results"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/test-results
+          if-no-files-found: ignore
       - name: Public API type contracts
         run: python3 scripts/check_types.py

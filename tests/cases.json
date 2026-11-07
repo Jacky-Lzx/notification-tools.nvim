@@ -1,0 +1,632 @@
+{
+  "version": 1,
+  "default": [
+    "unit",
+    "ui",
+    "format"
+  ],
+  "defaults": {},
+  "cases": [
+    {
+      "name": "runner-contracts",
+      "suite": "unit",
+      "command": [
+        "{python}",
+        "tests/runner_checks.py"
+      ],
+      "files": [
+        "tests/runner_checks.py"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "health",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-n",
+        "-l",
+        "tests/health.lua"
+      ],
+      "files": [
+        "tests/health.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "setup_contract",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/setup_contract.lua"
+      ],
+      "files": [
+        "tests/setup_contract.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "command_ownership",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/command_ownership.lua"
+      ],
+      "files": [
+        "tests/command_ownership.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "startup_lazy",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/startup_lazy.lua"
+      ],
+      "files": [
+        "tests/startup_lazy.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "core",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/core.lua"
+      ],
+      "files": [
+        "tests/core.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "routing",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/routing.lua"
+      ],
+      "files": [
+        "tests/routing.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "messages",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/messages.lua"
+      ],
+      "files": [
+        "tests/messages.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "integrations",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/integrations.lua"
+      ],
+      "files": [
+        "tests/integrations.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "layout",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/layout.lua"
+      ],
+      "files": [
+        "tests/layout.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "tabs",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/tabs.lua"
+      ],
+      "files": [
+        "tests/tabs.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "performance",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/performance.lua"
+      ],
+      "files": [
+        "tests/performance.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "progress_bars",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/progress_bars.lua"
+      ],
+      "files": [
+        "tests/progress_bars.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "scheduler",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/scheduler.lua"
+      ],
+      "files": [
+        "tests/scheduler.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "incremental",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/incremental.lua"
+      ],
+      "files": [
+        "tests/incremental.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "architecture",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/architecture.lua"
+      ],
+      "files": [
+        "tests/architecture.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "styles",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/styles.lua"
+      ],
+      "files": [
+        "tests/styles.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "theme",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/theme.lua"
+      ],
+      "files": [
+        "tests/theme.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "markdown",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/markdown.lua"
+      ],
+      "files": [
+        "tests/markdown.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "table",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/table.lua"
+      ],
+      "files": [
+        "tests/table.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "spans",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/spans.lua"
+      ],
+      "files": [
+        "tests/spans.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "history",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/history.lua"
+      ],
+      "files": [
+        "tests/history.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "browsing",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/browsing.lua"
+      ],
+      "files": [
+        "tests/browsing.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "task_history",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/task_history.lua"
+      ],
+      "files": [
+        "tests/task_history.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "reading",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/reading.lua"
+      ],
+      "files": [
+        "tests/reading.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "picker",
+      "suite": "unit",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/picker.lua"
+      ],
+      "files": [
+        "tests/picker.lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "messages_ui",
+      "suite": "ui",
+      "command": [
+        "{python}",
+        "tests/messages_ui.py"
+      ],
+      "files": [
+        "tests/messages_ui.py"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "theme_ui",
+      "suite": "ui",
+      "command": [
+        "{python}",
+        "tests/theme_ui.py"
+      ],
+      "files": [
+        "tests/theme_ui.py"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "progress_ui",
+      "suite": "ui",
+      "command": [
+        "{python}",
+        "tests/progress_ui.py"
+      ],
+      "files": [
+        "tests/progress_ui.py"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "stylua",
+      "suite": "format",
+      "command": [
+        "stylua",
+        "--check",
+        "lua",
+        "tests",
+        "examples",
+        "scripts"
+      ],
+      "files": [],
+      "timeout": 90
+    },
+    {
+      "name": "noice",
+      "suite": "compatibility",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/noice.lua"
+      ],
+      "files": [
+        "tests/noice.lua"
+      ],
+      "requires": [
+        "env:NOTIFICATION_TOOLS_NOICE_ROOT",
+        "env:NOTIFICATION_TOOLS_NUI_ROOT",
+        "path:$NOTIFICATION_TOOLS_NOICE_ROOT/lua/noice/init.lua",
+        "path:$NOTIFICATION_TOOLS_NUI_ROOT/lua/nui"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "lazy",
+      "suite": "compatibility",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-n",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-l",
+        "tests/lazy.lua"
+      ],
+      "files": [
+        "tests/lazy.lua"
+      ],
+      "requires": [
+        "env:NOTIFICATION_TOOLS_LAZY_ROOT",
+        "path:$NOTIFICATION_TOOLS_LAZY_ROOT/lua/lazy/init.lua"
+      ],
+      "timeout": 90
+    }
+  ],
+  "support": {
+    "tests/helpers.lua": "Loaded by tests/picker.lua",
+    "tests/fixtures/cmdline.lua": "Loaded by tests/messages_ui.py",
+    "tests/run.sh": "Stable shell entry point for tests/run.py",
+    "tests/types/valid.lua": "Consumer API contract fixture loaded by scripts/check_types.py"
+  },
+  "manual": {
+    "tests/history_tui.lua": "Interactive terminal acceptance; set NOTIFICATION_TOOLS_TUI_EXIT=1 and NOTIFICATION_TOOLS_TUI_RESULT for unattended use",
+    "tests/tui.lua": "Interactive terminal acceptance; set NOTIFICATION_TOOLS_TUI_EXIT=1 and NOTIFICATION_TOOLS_TUI_RESULT for unattended use",
+    "tests/reading_tui.lua": "Interactive terminal acceptance; set NOTIFICATION_TOOLS_TUI_EXIT=1 and NOTIFICATION_TOOLS_TUI_RESULT for unattended use"
+  }
+}

@@ -516,3 +516,5 @@ Health reports actionable failures and a compact result for applicable checks. D
 optional and not-yet-activated features do not warn solely because they are inactive.
 Inspection does not configure plugins, start services or install dependencies.
 Use `:NotificationToolsInfo` for configuration, ownership and history/task counts.
+
+[Test workflow](tests/README.md): registered suites, filtering, required fixtures and retained failure evidence.
