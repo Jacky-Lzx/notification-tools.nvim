@@ -1,18 +1,51 @@
-*notification-tools.txt*  Notifications and progress for Neovim 0.10+
+*notification-tools.txt*	Readable notifications, grouped progress and searchable history.
 
-SETUP                                                  *notification-tools*
+==============================================================================
+CONTENTS                                                  *notification-tools*
+
+  Quick start         |notification-tools-quickstart|
+  Commands            |notification-tools-commands|
+  Options             |notification-tools-options|
+  Lua API             |notification-tools-api|
+  Lifecycle           |notification-tools-lifecycle|
+  Troubleshooting     |notification-tools-troubleshooting|
+
+==============================================================================
+QUICK START                                    *notification-tools-quickstart*
+
+Requires Neovim 0.10+. No runtime dependencies. Configure one owner for
+vim.notify and external message handling.
+
+>lua
+    require("notification-tools").setup({})
+<
+
+The example above selects a small working setup. Full defaults, options and
+feature contracts are documented in this reference. Public installation and
+package-manager examples are in README.md.
+
+==============================================================================
+TROUBLESHOOTING                           *notification-tools-troubleshooting*
+
+Check the minimum Neovim version and feature dependencies first. Run
+:checkhealth notification-tools to inspect availability. Global mappings shown
+in the README are configuration examples unless explicitly documented as
+plugin defaults. Keep one owner for each overridden UI or mapping.
+
+SETUP
 >
     require("notification-tools").setup({})
 <
-No dependencies. Ordinary notifications appear at the top right. Progress tasks
-appear at the bottom right. Requiring the module alone has no setup side effects.
-The first API call initializes defaults if setup has not been called.
-Keep the plugin enabled at startup to capture early vim.notify/LSP events. Setup
-registers the lightweight entry points; UI/layout load on first display, history
-loads on demand, and plain task progress does not load Markdown. Empty events,
-filtered/history-only notices and hidden panels do not initialize display modules.
+No dependencies. Ordinary notifications appear at the top right. Progress
+tasks appear at the bottom right. Requiring the module alone has no setup side
+effects. The first API call initializes defaults if setup has not been called.
+Keep the plugin enabled at startup to capture early vim.notify/LSP events.
+Setup registers the lightweight entry points; UI/layout load on first display,
+history loads on demand, and plain task progress does not load Markdown. Empty
+events, filtered/history-only notices and hidden panels do not initialize
+display modules.
 
-API                                            *notification-tools-api*
+API                                                   *notification-tools-api*
 >
     local tools = require("notification-tools")
     local id = tools.notify("Hello", "info", { title = "Build", timeout = 4000 })
@@ -21,125 +54,133 @@ API                                            *notification-tools-api*
 <
 notify(message, level?, opts?) returns an ID, or nil when filtered. Levels may
 be vim.log.levels values or case-insensitive names. opts: id, replace, title,
-icon, source, details, markdown, filetype, timeout. details is optional secondary
-text. timeout=0 pins a notification. IDs are strings or finite numbers.
-Replacements update the corresponding history entry. Timeouts start at creation.
+icon, source, details, markdown, filetype, timeout. details is optional
+secondary text. timeout=0 pins a notification. IDs are strings or finite
+numbers. Replacements update the corresponding history entry. Timeouts start
+at creation.
 
-Table messages use vim.inspect and default to Lua highlighting in popups, history
-and picker previews. No parser is required; strings stay literal and special
-inspect values such as <function 1> and <table 1> are supported.
-opts.filetype="lua" explicitly highlights a string as Lua; "text" disables body
-formatting, including automatic table highlighting. These are the only supported
-filetypes. Details still follow the Markdown option. Each replacement infers its
-body format from the new value unless opts.filetype is supplied again. History
-and filter snapshots keep the inspected string and its filetype. Stringified
-command output is not automatically guessed to be Lua.
+Table messages use vim.inspect and default to Lua highlighting in popups,
+history and picker previews. No parser is required; strings stay literal and
+special inspect values such as <function 1> and <table 1> are supported.
+opts.filetype="lua" explicitly highlights a string as Lua; "text" disables
+body formatting, including automatic table highlighting. These are the only
+supported filetypes. Details still follow the Markdown option. Each
+replacement infers its body format from the new value unless opts.filetype is
+supplied again. History and filter snapshots keep the inspected string and its
+filetype. Stringified command output is not automatically guessed to be Lua.
 
 opts.spans formats parts of a mixed body with ordered, non-overlapping ranges:
-{ start=0, finish=12, filetype="lua" } or
-{ start=12, finish=20, hl_group="WarningMsg" }.
-Offsets are zero-based original-message bytes; finish is exclusive and endpoints
-must respect UTF-8 boundaries. Unmarked text uses the body format. Spans survive
-wrapping, history and previews; replacements must supply them again.
-String messages with formatting metadata also work with the default vim.notify.
-Native messages retain semantic chunk colors on Neovim 0.12+; older protocols
-keep literal text because their screen attribute IDs cannot identify groups.
+{ start=0, finish=12, filetype="lua" } or { start=12, finish=20,
+hl_group="WarningMsg" }. Offsets are zero-based original-message bytes; finish
+is exclusive and endpoints must respect UTF-8 boundaries. Unmarked text uses
+the body format. Spans survive wrapping, history and previews; replacements
+must supply them again. String messages with formatting metadata also work
+with the default vim.notify. Native messages retain semantic chunk colors on
+Neovim 0.12+; older protocols keep literal text because their screen attribute
+IDs cannot identify groups.
 
 Body and details support inline Markdown by default: **bold** / __bold__,
 *italic* / _italic_, backtick code spans, ~~strike~~ and [label](url). Links show
-their label; the complete URL stays in history. Escapes and literal code content
-are preserved. Supported spans stay styled across automatic window wrapping.
-Markup spans are limited to one logical line. Block layouts/HTML are not rendered;
-fenced code blocks stay literal. This is not a full Markdown document renderer.
-Titles/tasks remain plain text, and history keeps the original Markdown source.
-The history window highlights time, level, title, body and Markdown spans.
-Markdown delimiters/URLs are concealed without changing buffer text.
-Yanks copy original Markdown. Conceal settings are local
-to this history window. A notice with markdown=false stays literal.
-In Normal mode the cursor line reveals its Markdown source; other lines stay
-concealed. Moving the cursor conceals the previous line and reveals the new one.
-Set notification.markdown=false globally, or pass opts.markdown=false for a raw
-message. Per-notice mode is inherited on explicit updates. Different modes never
-auto-merge, even with identical source text.
+their label; the complete URL stays in history. Escapes and literal code
+content are preserved. Supported spans stay styled across automatic window
+wrapping. Markup spans are limited to one logical line. Block layouts/HTML are
+not rendered; fenced code blocks stay literal. This is not a full Markdown
+document renderer. Titles/tasks remain plain text, and history keeps the
+original Markdown source. The history window highlights time, level, title,
+body and Markdown spans. Markdown delimiters/URLs are concealed without
+changing buffer text. Yanks copy original Markdown. Conceal settings are local
+to this history window. A notice with markdown=false stays literal. In Normal
+mode the cursor line reveals its Markdown source; other lines stay concealed.
+Moving the cursor conceals the previous line and reveals the new one. Set
+notification.markdown=false globally, or pass opts.markdown=false for a raw
+message. Per-notice mode is inherited on explicit updates. Different modes
+never auto-merge, even with identical source text.
 
 Without an explicit id/replace, identical active notices merge: title, body,
-details, severity, icon, timeout, Markdown mode, body filetype and spans must match.
-The same ID is returned, count increases, and the timeout restarts.
-Explicit updates preserve count unless the
-content changes. Explicit IDs stay independent. Set notification.merge_duplicates
-to false to disable automatic merging. History includes the merged count.
+details, severity, icon, timeout, Markdown mode, body filetype and spans must
+match. The same ID is returned, count increases, and the timeout restarts.
+Explicit updates preserve count unless the content changes. Explicit IDs stay
+independent. Set notification.merge_duplicates to false to disable automatic
+merging. History includes the merged count.
 
-history() returns an independent oldest-first snapshot of notification records.
-show_history(opts?) opens a scrollable history window, newest created/updated
-records first. The history() API remains oldest-first. clear_history() clears history.
-history(opts?) also accepts filters: level (minimum), source (exact match), title
-(case-insensitive literal substring). Conditions intersect; source defaults to
-the original notice title. These filters do not change the stored records.
-:Notifications [level=warn] [source=lua_ls] [title=Build] accepts the same filters.
-Use the Lua API for source/title values containing spaces.
-History keys: ]n/[n next/previous notice; gl minimum level; gs source; gt title;
-r refresh; R reset filters and refresh; q/Escape close. Prompts use vim.ui.
-Refresh retains the window/buffer and anchors the cursor to the selected notice
-ID and line offset when it is still available. New notices do not auto-refresh.
-Active filters and the visible record count appear in the window title.
-dismiss() closes all ordinary notifications, preserving history and tasks.
+history() returns an independent oldest-first snapshot of notification
+records. show_history(opts?) opens a scrollable history window, newest
+created/updated records first. The history() API remains oldest-first.
+clear_history() clears history. history(opts?) also accepts filters: level
+(minimum), source (exact match), title (case-insensitive literal substring).
+Conditions intersect; source defaults to the original notice title. These
+filters do not change the stored records.
+:Notifications [level=warn] [source=lua_ls] [title=Build] accepts the same
+filters. Use the Lua API for source/title values containing spaces. History
+keys: ]n/[n next/previous notice; gl minimum level; gs source; gt title; r
+refresh; R reset filters and refresh; q/Escape close. Prompts use vim.ui.
+Refresh retains the window/buffer and anchors the cursor to the selected
+notice ID and line offset when it is still available. New notices do not
+auto-refresh. Active filters and the visible record count appear in the window
+title. dismiss() closes all ordinary notifications, preserving history and
+tasks.
 
-FUZZY HISTORY                                  *notification-tools-picker*
+FUZZY HISTORY                                      *notification-tools-picker*
 
-:NotificationsPick [level=warn] [source=lua_ls] [title=Build] opens the optional
-selection-tools.nvim picker. pick_history(opts?) accepts the same HistoryFilters
-as history()/show_history() and returns the picker. Selection-tools loads only on
-use; the other APIs do not require it. Missing selection-tools raises an error.
-Search includes timestamps, levels, titles, sources, full messages and details.
-Results use four aligned columns: time, level, title and content. Time/dividers
-are muted, levels use severity colors, and titles are highlighted. Sources and
-details are muted content metadata. Fuzzy matches take priority over these colors.
-Records start newest-first. The preview colors time, level, title and source,
-and renders inline Markdown styles in the complete message and details.
-<CR> reads the selection, <Esc> cancels. The picker uses a snapshot: reopen it to
-include new messages. Evicted records remain readable from that snapshot.
-Setup/teardown closes the picker and invalidates old callbacks. Confirmation uses
-the existing reader, including pause/resume of an active notice's timeout.
+:NotificationsPick [level=warn] [source=lua_ls] [title=Build] opens the
+optional selection-tools.nvim picker. pick_history(opts?) accepts the same
+HistoryFilters as history()/show_history() and returns the picker.
+Selection-tools loads only on use; the other APIs do not require it. Missing
+selection-tools raises an error. Search includes timestamps, levels, titles,
+sources, full messages and details. Results use four aligned columns: time,
+level, title and content. Time/dividers are muted, levels use severity colors,
+and titles are highlighted. Sources and details are muted content metadata.
+Fuzzy matches take priority over these colors. Records start newest-first. The
+preview colors time, level, title and source, and renders inline Markdown
+styles in the complete message and details.
+<CR> reads the selection, <Esc> cancels. The picker uses a snapshot: reopen it
+to include new messages. Evicted records remain readable from that snapshot.
+Setup/teardown closes the picker and invalidates old callbacks. Confirmation
+uses the existing reader, including pause/resume of an active notice's
+timeout.
 
-READING                                        *notification-tools-reading*
+READING                                           *notification-tools-reading*
 
-show_notification(id?) opens one complete notice. Without an ID, it chooses the
-most recently created/updated ordinary notice. Explicit IDs can also address task
-result history. Returns the record ID, or nil if unavailable. Window work is
-scheduled. :NotificationsLatest reads the latest ordinary notice. In history,
-<CR> reads the selected record. q/Escape close; r refreshes its current content.
+show_notification(id?) opens one complete notice. Without an ID, it chooses
+the most recently created/updated ordinary notice. Explicit IDs can also
+address task result history. Returns the record ID, or nil if unavailable.
+Window work is scheduled. :NotificationsLatest reads the latest ordinary
+notice. In history,
+<CR> reads the selected record. q/Escape close; r refreshes its current
+content.
 
 Reading an active notice pauses its remaining timeout. Closing resumes the
-remaining time, rather than a fresh full timeout. Replacing/merging a notice while
-reading resets that remaining time to the new timeout; r shows the updated text.
-Pinned notices remain pinned. Expired/dismissed notices are read from history and
-are never resurrected. history_size=0 still permits reading a live notice.
-Notifications and progress follow the active tab. Switching tabs closes the
-reader and resumes its paused timeout. Only one history/reading window is open
-at a time. Switching readers, externally
-closing/wiping the buffer, setup and teardown clean up the reading state. Reading
-windows appear above the plugin's ordinary popups and task panel. They use the
-same filetype, colors and cursor-line source reveal as history.
+remaining time, rather than a fresh full timeout. Replacing/merging a notice
+while reading resets that remaining time to the new timeout; r shows the
+updated text. Pinned notices remain pinned. Expired/dismissed notices are read
+from history and are never resurrected. history_size=0 still permits reading a
+live notice. Notifications and progress follow the active tab. Switching tabs
+closes the reader and resumes its paused timeout. Only one history/reading
+window is open at a time. Switching readers, externally closing/wiping the
+buffer, setup and teardown clean up the reading state. Reading windows appear
+above the plugin's ordinary popups and task panel. They use the same filetype,
+colors and cursor-line source reveal as history.
 
-ROUTING                                        *notification-tools-routing*
+ROUTING                                           *notification-tools-routing*
 
 notification.dnd=false enables do-not-disturb when true. Only levels at least
 notification.dnd_level (ERROR by default) pop up; OFF suppresses all levels.
-Tasks are unaffected. Suppressed notices stay in history and are never replayed.
-set_dnd(boolean), toggle_dnd(), is_dnd() return the resulting/current state.
+Tasks are unaffected. Suppressed notices stay in history and are never
+replayed. set_dnd(boolean), toggle_dnd(), is_dnd() return the
+resulting/current state.
 :NotificationsDnd [on|off|toggle] toggles when no argument is given.
 
 notification.filter is an optional synchronous callback receiving independent
-normalized fields (message, level, title, source, details, timeout, etc.). Return
-"show" or nil for normal display, "history" for history only, "drop" to ignore
-(returning nil from notify). DND also applies to "show". The global minimum level
-is checked first. Errors/invalid results are reported without recursive notify,
-and fall back to "show". source defaults to title and is inherited on replacement.
-Different sources do not auto-merge.
-Dropping an explicit update also removes the previous popup/history record for
-that notification ID, including a partially emitted native message.
+normalized fields (message, level, title, source, details, timeout, etc.).
+Return "show" or nil for normal display, "history" for history only, "drop" to
+ignore (returning nil from notify). DND also applies to "show". The global
+minimum level is checked first. Errors/invalid results are reported without
+recursive notify, and fall back to "show". source defaults to title and is
+inherited on replacement. Different sources do not auto-merge. Dropping an
+explicit update also removes the previous popup/history record for that
+notification ID, including a partially emitted native message.
 
-NATIVE MESSAGES                                *notification-tools-messages*
+NATIVE MESSAGES                                  *notification-tools-messages*
 
 Native :echo/print()/command messages are separate from vim.notify. Capture is
 optional and requires a compatible external command-line/prompt renderer:
@@ -149,16 +190,18 @@ optional and requires a compatible external command-line/prompt renderer:
       routes = { lua_print = "history", search_count = "drop" },
     } })
 <
-messages.enabled defaults to false. Setting it true alone does not subscribe to
-UI events or change the native command line. With no external handoff, ordinary
-notifications/tasks/LSP progress remain available and native messages stay native.
+messages.enabled defaults to false. Setting it true alone does not subscribe
+to UI events or change the native command line. With no external handoff,
+ordinary notifications/tasks/LSP progress remain available and native messages
+stay native.
 
 The external renderer calls tools.attach_messages() AFTER it is ready. This
-returns nil when disabled, or a handle with :is_active() and :detach(). Only one
-handle may be active. Detach BEFORE stopping the external renderer. Detach is
-idempotent, ignores stale handles and discards queued events. setup()/teardown()
-invalidate the handle; a running renderer must repeat the handoff after setup.
-Unexpected consumer shutdown cannot be detected automatically.
+returns nil when disabled, or a handle with :is_active() and :detach(). Only
+one handle may be active. Detach BEFORE stopping the external renderer. Detach
+is idempotent, ignores stale handles and discards queued events.
+setup()/teardown() invalidate the handle; a running renderer must repeat the
+handoff after setup. Unexpected consumer shutdown cannot be detected
+automatically.
 
 Each successful setup emits User NotificationToolsReady after entry points and
 vim.notify ownership are ready. Consumers may retry the handoff in this event
@@ -172,35 +215,38 @@ needs (msg_showmode, msg_showcmd, msg_ruler). This plugin never consumes those
 events and does not include a command-line renderer. Do not attach without a
 working consumer. See examples/messages.lua for the handoff lifecycle.
 
-Older numbered-choice prompts may have an empty kind and mode(1) beginning with
-r. Non-fast events in that state are also left to the interactive consumer.
+Older numbered-choice prompts may have an empty kind and mode(1) beginning
+with r. Non-fast events in that state are also left to the interactive
+consumer.
 
 Non-interactive msg_show events become literal-text notifications with source
-neovim and a kind-specific title. emsg/echoerr/lua_error/rpc_error map to ERROR,
-wmsg to WARN and other kinds to INFO. Text chunks are concatenated without added
-spacing; native chunk colors are not rendered. Native IDs, replace_last and
-append update records; explicit IDs mean native messages do not auto-merge.
+neovim and a kind-specific title. emsg/echoerr/lua_error/rpc_error map to
+ERROR, wmsg to WARN and other kinds to INFO. Text chunks are concatenated
+without added spacing; native chunk colors are not rendered. Native IDs,
+replace_last and append update records; explicit IDs mean native messages do
+not auto-merge.
 
 messages.routes maps kinds to show/history/drop; unlisted kinds use show.
 Defaults: search_count=drop, search_cmd=drop, undo=drop, redo=drop,
-bufwrite=history. Override with show
-to restore a default popup. Ordinary minimum severity, notification.filter and
-DND still apply. The filter cannot promote history to show. Interactive kinds
-cannot be routed to notifications. Ingress and native-ID tracking are bounded by
-max_pending; overflow retains the newest queued events. msg_clear resets update
-tracking; notification cards keep their own configured lifetime.
+bufwrite=history. Override with show to restore a default popup. Ordinary
+minimum severity, notification.filter and DND still apply. The filter cannot
+promote history to show. Interactive kinds cannot be routed to notifications.
+Ingress and native-ID tracking are bounded by max_pending; overflow retains
+the newest queued events. msg_clear resets update tracking; notification cards
+keep their own configured lifetime.
 
 While attached, :messages/g< open the native history snapshot in the existing
 reader, including native entries from before attachment. This neither replays
-popups nor imports entries into :Notifications. Native history lacks timestamps;
-snapshot entries use the opening time. :Notifications shows captured messages
-and task results, including :echo output absent from Neovim's own history.
+popups nor imports entries into :Notifications. Native history lacks
+timestamps; snapshot entries use the opening time. :Notifications shows
+captured messages and task results, including :echo output absent from
+Neovim's own history.
 
-Only one native-message owner should be active. With the existing Noice adapter,
-leave this feature detached and let Noice own native messages. The optional
-capture uses the experimental vim.ui_attach interface.
+Only one native-message owner should be active. With the existing Noice
+adapter, leave this feature detached and let Noice own native messages. The
+optional capture uses the experimental vim.ui_attach interface.
 
-PROGRESS                                       *notification-tools-progress*
+PROGRESS                                         *notification-tools-progress*
 >
     local task = tools.progress({
       id = "producer:job:1", title = "Build", source = "my-plugin",
@@ -210,63 +256,69 @@ PROGRESS                                       *notification-tools-progress*
     task:finish("Ready")
 <
 The caller owns its events, handles, and actual work cancellation. The plugin
-does not listen to business-plugin events. Use namespaced IDs to avoid clashes.
+does not listen to business-plugin events. Use namespaced IDs to avoid
+clashes.
 
 progress(opts) returns a handle with id and the following methods:
   :update(opts)             Update title/source/message/percentage/history.
   :finish(message?, status?) End with success (default), error or cancelled.
-  :cancel(message?)        Mark cancelled; does not cancel the producer's work.
+  :cancel(message?)        Mark cancelled; does not cancel the producer's
+      work.
   :is_active()             Whether updates are still accepted.
 
 progress.style="bar" is the default: running tasks with a known percentage use
-a width-adaptive bar. Unknown totals use a spinner and task name. Completed tasks
-use status rows without bars or percentages; successful rows omit the default
-"Completed" detail. Useful result messages and error reasons remain visible.
-Elapsed time appears after one second; running percentages take precedence.
-Short/narrow screens omit bars before hiding task text. Set
+a width-adaptive bar. Unknown totals use a spinner and task name. Completed
+tasks use status rows without bars or percentages; successful rows omit the
+default "Completed" detail. Useful result messages and error reasons remain
+visible. Elapsed time appears after one second; running percentages take
+precedence. Short/narrow screens omit bars before hiding task text. Set
 progress.style="compact" for spinner/text rows everywhere. The unfilled track
 uses NotificationToolsProgressTrack; the fill uses NotificationToolsProgress.
 Result icons use Done/ERROR/Cancelled groups.
 
 Tasks appear after progress.display_delay (180ms). Successes completed sooner
-stay hidden; failures and cancellations appear immediately. Set display_delay=0
-for immediate presentation. API snapshots and history still retain every run.
-Blank title updates preserve the last meaningful name. Missing names use message
-or status text for display. Equivalent successful results from the same source
-share a counted row; their IDs, expiration and history remain independent.
+stay hidden; failures and cancellations appear immediately. Set
+display_delay=0 for immediate presentation. API snapshots and history still
+retain every run. Blank title updates preserve the last meaningful name.
+Missing names use message or status text for display. Equivalent successful
+results from the same source share a counted row; their IDs, expiration and
+history remain independent.
 
 percentage is clamped to integer 0..100. Omitted fields retain their values.
-The same active ID returns the same handle. Ended IDs may be reused. Old handles
-are inert after completion, eviction, clear_tasks(), setup(), or teardown().
-Mutation methods return the handle. After setup on the main loop, notification
-and task methods are safe from libuv callbacks. Window changes are scheduled
-onto the main loop and do not take focus.
+The same active ID returns the same handle. Ended IDs may be reused. Old
+handles are inert after completion, eviction, clear_tasks(), setup(), or
+teardown(). Mutation methods return the handle. After setup on the main loop,
+notification and task methods are safe from libuv callbacks. Window changes
+are scheduled onto the main loop and do not take focus.
 
 tasks() returns newest-first task snapshots. clear_tasks() clears all tasks.
-Success/cancellation results remain for progress.done_ttl milliseconds. Failures
-and timeouts use progress.error_ttl instead. Silent tasks time out after
-progress.stale_timeout milliseconds; 0 disables this timeout.
+Success/cancellation results remain for progress.done_ttl milliseconds.
+Failures and timeouts use progress.error_ttl instead. Silent tasks time out
+after progress.stale_timeout milliseconds; 0 disables this timeout.
 
-TASK RESULTS                                   *notification-tools-task-history*
+TASK RESULTS                                 *notification-tools-task-history*
 
-progress.history="errors" (default) records failures and inactivity timeouts in
-notification history. false disables recording; "all" also records success and
-cancellation. progress({ history = ... }) or handle:update({ history = ... })
-overrides the policy for one task. Clearing/evicting tasks does not record them.
+progress.history="errors" (default) records failures and inactivity timeouts
+in notification history. false disables recording; "all" also records success
+and cancellation. progress({ history = ... }) or handle:update({ history = ...
+}) overrides the policy for one task. Clearing/evicting tasks does not record
+them.
 
-Results include title/source, final message, status and duration (milliseconds).
-Each run gets an independent history ID; task_id preserves the producer ID.
-Task records have kind="task"; ordinary notices have kind="notification".
-Success uses INFO, errors ERROR, cancellations WARN. Task content is plain text.
-Results remain after done_ttl; they share history_size with ordinary notices.
-history_size=0 disables all recording. Results never create extra popups and
-use the task recording policy, bypassing ordinary filters/minimum level/DND.
+Results include title/source, final message, status and duration
+(milliseconds). Each run gets an independent history ID; task_id preserves the
+producer ID. Task records have kind="task"; ordinary notices have
+kind="notification". Success uses INFO, errors ERROR, cancellations WARN. Task
+content is plain text. Results remain after done_ttl; they share history_size
+with ordinary notices. history_size=0 disables all recording. Results never
+create extra popups and use the task recording policy, bypassing ordinary
+filters/minimum level/DND.
 
-LUALS TYPES                                    *notification-tools-types*
+LUALS TYPES                                         *notification-tools-types*
 
-Public LuaLS annotations cover setup options, notifications, filters, task handles
-and snapshots. Add this plugin's lua directory to your LuaLS workspace library
-if your Neovim Lua tooling does not discover it automatically. Example:
+Public LuaLS annotations cover setup options, notifications, filters, task
+handles and snapshots. Add this plugin's lua directory to your LuaLS workspace
+library if your Neovim Lua tooling does not discover it automatically.
+Example:
 >
     ---@type notification_tools.Config
     local opts = { progress = { style = "bar", history = "errors" } }
@@ -274,10 +326,11 @@ if your Neovim Lua tooling does not discover it automatically. Example:
 <
 Available types include Config, NotifyOptions, FilterNotice, TaskOptions,
 TaskUpdate, TaskHandle, TaskSnapshot, HistoryFilters and Record, prefixed with
-notification_tools. Metadata is in lua/notification-tools/types.lua and does not
-need a runtime require. scripts/check_types.py checks valid/invalid consumers.
+notification_tools. Metadata is in lua/notification-tools/types.lua and does
+not need a runtime require. scripts/check_types.py checks valid/invalid
+consumers.
 
-OPTIONS                                        *notification-tools-options*
+OPTIONS                                           *notification-tools-options*
 
 notify=true              Own vim.notify; false only enables the explicit API.
 level=INFO               Minimum notification severity.
@@ -295,22 +348,27 @@ window.zindex=150        Float stacking priority.
 window.gap=1             Space between notices / between the two areas.
 notification.merge_duplicates=true  Merge identical active notices.
 notification.markdown=true          Render inline Markdown in body/details.
-notification.timestamp=true         Time in the header; replaced by repeat count.
-notification.fade_out=180            Fade during the final timeout milliseconds.
-notification.window      Inherits window, with horizontal padding=2, vertical=0.
+notification.timestamp=true         Time in the header; replaced by repeat
+count. notification.fade_out=180            Fade during the final timeout
+milliseconds. notification.window      Inherits window, with horizontal
+padding=2, vertical=0.
 progress.window          Inherits window (rounded border), with min_width=24,
                         max_width=44, max_height=12 and horizontal padding=1,
-                        vertical=0. max_height includes headers, bars and details.
+                        vertical=0. max_height includes headers, bars and
+                            details.
 *.window.padding         { horizontal = cells, vertical = lines }.
 progress.enabled=true   Show the task panel; API remains available when false.
-progress.style="bar"    Default progress bars; "compact" uses spinner/text rows.
-progress.max_items=6     Maximum visible entries after grouping, excluding labels.
-progress.display_delay=180 Delay presentation; shorter successes stay hidden.
+progress.style="bar"    Default progress bars; "compact" uses spinner/text
+rows. progress.max_items=6     Maximum visible entries after grouping,
+excluding labels. progress.display_delay=180 Delay presentation; shorter
+successes stay hidden.
 progress.done_ttl=1500   Success/cancellation lifetime in milliseconds.
 progress.error_ttl=5000  Failure/timeout lifetime in milliseconds.
-progress.history="errors" Failure/timeout history; "all" or false also supported.
+progress.history="errors" Failure/timeout history; "all" or false also
+supported.
 progress.group_by_source=true       One source label per task group.
-progress.show_elapsed=true          Durations >=1s; running percentages take priority.
+progress.show_elapsed=true          Durations >=1s; running percentages take
+priority.
 progress.fade_out=240               Fade during the final result lifetime,
                                    leaving active siblings intact.
 progress.stale_timeout=120000 Time without updates before timeout; 0 disables.
@@ -325,66 +383,226 @@ icons                   TRACE/DEBUG/INFO/WARN/ERROR icon strings.
 window remains a shared fallback. notification.window and progress.window can
 override it independently. A notice's max_height limits body/details lines.
 Task gaps/details, bar rows and source labels are omitted before hiding tasks
-on small screens.
-Widths are measured from content and only grow during a float's lifetime, except
-when the screen shrinks. Source groups and their tasks keep creation order.
-Notices append in creation order; updates do not reorder them. Recent notices
-are preferred on overflow. Public task/history snapshot ordering is unchanged.
+on small screens. Widths are measured from content and only grow during a
+float's lifetime, except when the screen shrinks. Source groups and their
+tasks keep creation order. Notices append in creation order; updates do not
+reorder them. Recent notices are preferred on overflow. Public task/history
+snapshot ordering is unchanged.
 
 Static notices sleep until their fade/expiration deadline. Visible spinner and
-elapsed-time changes schedule their own frames; hidden task panels do not animate.
-Producer bursts are rate-limited for painting while state updates remain immediate.
-Changed task rows retain unrelated text and highlight extmarks.
+elapsed-time changes schedule their own frames; hidden task panels do not
+animate. Producer bursts are rate-limited for painting while state updates
+remain immediate. Changed task rows retain unrelated text and highlight
+extmarks.
 
-Fade durations of 0 disable fading. Fades do not extend timeout or result lifetime;
-pinned notices never fade. True-color terminals provide the best color blending.
-Lists replace defaults. Screen space is shared without overlap between the two
-areas. Hidden notifications still expire; full messages remain in history.
-Repeated setup clears state. teardown() removes owned resources and restores
-the prior vim.notify only when this plugin still owns the function.
+Fade durations of 0 disable fading. Fades do not extend timeout or result
+lifetime; pinned notices never fade. True-color terminals provide the best
+color blending. Lists replace defaults. Screen space is shared without overlap
+between the two areas. Hidden notifications still expire; full messages remain
+in history. Repeated setup clears state. teardown() removes owned resources
+and restores the prior vim.notify only when this plugin still owns the
+function.
 
-COMMANDS                                       *notification-tools-commands*
+COMMANDS                                         *notification-tools-commands*
 
-:Notifications           Show colored history with Markdown conceal and cursor-line
-                         source reveal; q or Escape closes it.
+:Notifications           Show colored history with Markdown conceal and
+cursor-line source reveal; q or Escape closes it.
 :NotificationsDismiss    Dismiss ordinary notifications.
-:NotificationsPick       Fuzzy search history using optional selection-tools.nvim.
+:NotificationsPick       Fuzzy search history using optional
+selection-tools.nvim.
 :NotificationsClear      Clear notification history.
-:NotificationsDnd [on|off|toggle] Toggle do-not-disturb (no argument also toggles).
-:NotificationsLatest     Read the latest ordinary notice; pause its active timeout.
+:NotificationsDnd [on|off|toggle] Toggle do-not-disturb (no argument also
+toggles). :NotificationsLatest     Read the latest ordinary notice; pause its
+active timeout.
 :NotificationToolsDemo   Show example notifications and a progressing task.
 :checkhealth notification-tools
 
 HIGHLIGHTS                                     *notification-tools-highlights*
 
 NotificationToolsNormal, NotificationToolsNotificationNormal,
-NotificationToolsProgressNormal, NotificationToolsBorder, NotificationToolsTitle,
-NotificationToolsBody, NotificationToolsTaskTitle, NotificationToolsMeta,
-NotificationToolsSource, NotificationToolsCancelled,
+NotificationToolsProgressNormal, NotificationToolsBorder,
+NotificationToolsTitle, NotificationToolsBody, NotificationToolsTaskTitle,
+NotificationToolsMeta, NotificationToolsSource, NotificationToolsCancelled,
 NotificationToolsMarkdownCode, NotificationToolsMarkdownLink,
 NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
-NotificationToolsDone, NotificationToolsProgressTrack. Defaults link to standard theme groups.
+NotificationToolsDone, NotificationToolsProgressTrack. Defaults link to
+standard theme groups.
 
 Lua bodies use NotificationToolsLuaField, NotificationToolsLuaString,
-NotificationToolsLuaNumber, NotificationToolsLuaBoolean, NotificationToolsLuaSpecial,
-NotificationToolsLuaPunctuation, NotificationToolsLuaOperator,
-NotificationToolsLuaKeyword and NotificationToolsLuaComment. Defaults link to
-Identifier, String, Number, Boolean, Special, Delimiter, Operator, Keyword and
-Comment respectively, following syntax colors across colorscheme changes.
+NotificationToolsLuaNumber, NotificationToolsLuaBoolean,
+NotificationToolsLuaSpecial, NotificationToolsLuaPunctuation,
+NotificationToolsLuaOperator, NotificationToolsLuaKeyword and
+NotificationToolsLuaComment. Defaults link to Identifier, String, Number,
+Boolean, Special, Delimiter, Operator, Keyword and Comment respectively,
+following syntax colors across colorscheme changes.
 
-Preview Markdown uses NotificationToolsPreviewBold, NotificationToolsPreviewItalic,
-NotificationToolsPreviewStrike and their combinations (e.g. PreviewBoldItalic).
-These typography overlays inherit the underlying body's or metadata's color.
+Preview Markdown uses NotificationToolsPreviewBold,
+NotificationToolsPreviewItalic, NotificationToolsPreviewStrike and their
+combinations (e.g. PreviewBoldItalic). These typography overlays inherit the
+underlying body's or metadata's color.
 
-When theme-tools is loaded, defaults use its shared palette and palette overrides.
-Text/surfaces use ui.float_fg/ui.float_bg, metadata uses ui.muted, and status
-colors use diagnostic.*. Open notifications, progress and history refresh on
-changes. Standalone defaults refresh after ColorScheme callbacks finish.
-Explicit highlight overrides are preserved while defined; use a ColorScheme
-autocmd to reapply overrides when a colorscheme clears highlights.
+When theme-tools is loaded, defaults use its shared palette and palette
+overrides. Text/surfaces use ui.float_fg/ui.float_bg, metadata uses ui.muted,
+and status colors use diagnostic.*. Open notifications, progress and history
+refresh on changes. Standalone defaults refresh after ColorScheme callbacks
+finish. Explicit highlight overrides are preserved while defined; use a
+ColorScheme autocmd to reapply overrides when a colorscheme clears highlights.
 Theme-tools is optional and is never loaded by notification-tools.
 
 See README.md and examples/ for lazy.nvim configuration and consumer adapters.
 
- vim:tw=78:ts=8:noet:ft=help:norl:
+==============================================================================
+CONFIGURATION                     *notification-tools-reference-configuration*
+
+Defaults work without configuration. Notifications and progress inherit the
+shared `window` settings and can override them independently.
+
+>lua
+    require("notification-tools").setup({
+      notify = true, -- false keeps the explicit API without replacing vim.notify.
+      level = vim.log.levels.INFO,
+      timeout = 4000,
+      history_size = 200, -- 0 disables all history, including task results.
+      max_notifications = 5,
+      max_pending = 100, -- Separate bounds for active notices and tasks.
+      window = {
+        border = "rounded", -- single, double, solid, none, or "" also supported.
+        winblend = 0,
+        min_width = 24,
+        max_width = 60,
+        max_height = 8,
+        top = 1, right = 1, bottom = 1,
+        zindex = 150,
+        gap = 1,
+        padding = { horizontal = 1, vertical = 0 },
+      },
+      notification = {
+        dnd = false,
+        dnd_level = "error",
+        markdown = true,
+        merge_duplicates = true,
+        timestamp = true,
+        fade_out = 180, -- Within the existing lifetime; 0 disables fading.
+        window = { padding = { horizontal = 2, vertical = 0 } },
+      },
+      progress = {
+        enabled = true, -- API remains available when the panel is disabled.
+        style = "bar", -- "compact" restores spinner-and-text rows.
+        max_items = 6,
+        display_delay = 180, -- Hide successes completed before this delay.
+        done_ttl = 1500,
+        error_ttl = 5000,
+        history = "errors", -- "all" or false also supported.
+        stale_timeout = 120000,
+        interval = 80,
+        group_by_source = true,
+        show_elapsed = true,
+        fade_out = 240,
+        window = { min_width = 24, max_width = 44, max_height = 12 },
+        avoid = { "NvimTree", "TestExplorer" },
+      },
+      lsp = { enabled = true, ignore = {} },
+      messages = {
+        enabled = false, -- Also requires a ready external cmdline/prompt renderer.
+        routes = {
+          search_count = "drop", search_cmd = "drop",
+          undo = "drop", redo = "drop", bufwrite = "history",
+        },
+      },
+    })
+<
+
+Full defaults: config.lua (lua/notification-tools/config.lua). Detailed
+reference: `:help notification-tools` (doc/notification-tools.txt).
+
+Notifications and the task panel follow the active tab. Switching tabs closes
+a reader and resumes its paused timeout.
+
+Parsed notification content is reused across timeout, title, and repeat-count
+updates. Unchanged layouts are cached by display constraints. Preview wrapping
+stops at the visible line budget while retaining full source text in history.
+
+Widths use display cells and only grow during a float's lifetime, except when
+the screen shrinks. Small screens drop optional task gaps, details, bar rows,
+and source labels before hiding tasks. Hidden notifications still expire.
+Fades stay inside the configured lifetime, and completed tasks fade
+independently of active siblings. True-color terminals give the best blending.
+
+==============================================================================
+THEME IT WITH HIGHLIGHT GROUPS *notification-tools-reference-configuration-theme-it-with-highlight-groups*
+
+Colors follow `NormalFloat`, `FloatBorder`, `Diagnostic*`, and your theme.
+Override individual groups with `nvim_set_hl`, including from a `ColorScheme`
+autocmd:
+
+>lua
+    vim.api.nvim_set_hl(0, "NotificationToolsNormal", { link = "Normal" }) -- Match the editor background.
+    vim.api.nvim_set_hl(0, "NotificationToolsBorder", { fg = "#89b4fa" })
+    vim.api.nvim_set_hl(0, "NotificationToolsBody", { fg = "#cdd6f4" })
+    vim.api.nvim_set_hl(0, "NotificationToolsSource", { link = "Comment" })
+<
+
+When theme-tools is already loaded, notifications subscribe to its shared
+semantic palette, including palette overrides. Text and surfaces use
+`ui.float_fg`/`ui.float_bg`, metadata uses `ui.muted`, and status colors use
+`diagnostic.*`. Theme changes update open notifications, progress, and
+history, including Markdown and fades. Without theme-tools, defaults follow
+standard highlights and refresh after `ColorScheme` overrides finish. Explicit
+notification highlight overrides are preserved while defined; reapply them in
+a `ColorScheme` autocmd when a colorscheme clears highlights. The integration
+never loads theme-tools itself and unsubscribes on teardown.
+
+Use `NotificationToolsNotificationNormal` and
+`NotificationToolsProgressNormal` for separate surfaces. The empty bar track
+uses `NotificationToolsProgressTrack`. Other groups include `Title`, `Body`,
+`TaskTitle`, `Meta`, `Source`, `ERROR/WARN/INFO/DEBUG/TRACE`, `Progress`,
+`Done`, `Cancelled`, `MarkdownCode`, and `MarkdownLink`, each prefixed with
+`NotificationTools`.
+
+Lua content uses `LuaField`, `LuaString`, `LuaNumber`, `LuaBoolean`,
+`LuaSpecial`, `LuaPunctuation`, `LuaOperator`, `LuaKeyword`, and `LuaComment`,
+each prefixed with `NotificationTools`. These link to standard syntax groups
+such as `Identifier`, `String`, `Number`, and `Boolean`, and follow
+colorscheme changes.
+
+==============================================================================
+COMMAND OWNERSHIP             *notification-tools-reference-command-ownership*
+
+Commands belong to the plugin; choose global entry keys and short aliases in
+your configuration. Registration reports same-name conflicts without replacing
+user commands. Reconfiguration refreshes only commands still owned by this
+plugin, and cleanup preserves subsequent user replacements.
+
+==============================================================================
+SETUP CONTRACT                                  *notification-tools-lifecycle*
+                                 *notification-tools-reference-setup-contract*
+
+`setup(nil)` uses defaults. Configuration must be a table; caller-owned tables
+are copied before use. Invalid configuration types do not replace live
+handlers or commands. Repeating setup must not accumulate automatic
+registrations.
+
+`dispose()` is the common full-release entry point (`teardown()` remains
+available). It invalidates producer handles and scheduled renders, closes
+owned views/timers, and restores `vim.notify` only while still owned. Repeated
+release is safe. Explicit use after disposal initializes a fresh default
+configuration.
+
+==============================================================================
+HEALTH AND INSPECTION     *notification-tools-reference-health-and-inspection*
+
+Health reports actionable failures and a compact result for applicable checks.
+Disabled, optional and not-yet-activated features do not warn solely because
+they are inactive. Inspection does not configure plugins, start services or
+install dependencies. Use `:NotificationToolsInfo` for configuration,
+ownership and history/task counts.
+
+Test workflow (tests/README.md): registered suites, filtering, required
+fixtures and retained failure evidence.
+
+Neovim 0.10 sends undo/redo feedback with an empty message kind, so it remains
+ordinary native feedback. Neovim 0.11+ supplies semantic kinds and the default
+`undo`/`redo` routes suppress those messages without matching localized text.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
