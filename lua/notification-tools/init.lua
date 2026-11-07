@@ -63,6 +63,20 @@ local function ensure()
   end
 end
 
+-- Detached inspection never initializes the scheduler, UI, or integrations.
+function M.status()
+  local messages = package.loaded["notification-tools.messages"]
+  return {
+    configured = state ~= nil,
+    config = state and vim.deepcopy(state.config) or nil,
+    dnd = state and state.dnd or false,
+    owns_notify = owned_notify ~= nil and vim.notify == owned_notify,
+    messages = messages ~= nil and messages.active(),
+    history_count = state and #model.history(state) or 0,
+    task_count = state and #model.tasks(state) or 0,
+  }
+end
+
 ---@param message any Strings are displayed directly; tables use vim.inspect.
 ---@param level? notification_tools.Level
 ---@param opts? notification_tools.NotifyOptions

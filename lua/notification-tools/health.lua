@@ -2,32 +2,51 @@ local M = {}
 
 function M.check()
   vim.health.start("notification-tools.nvim")
-  if vim.fn.has("nvim-0.10") == 1 then
-    vim.health.ok("Neovim >= 0.10")
-  else
-    vim.health.error("Neovim >= 0.10 is required")
+  if vim.fn.has("nvim-0.10") == 0 then
+    vim.health.error("Neovim 0.10+ is required", { "Upgrade Neovim" })
+    return
   end
-  if #vim.api.nvim_list_uis() == 0 then
-    vim.health.info("No UI attached; floating windows need a TUI or GUI to be visible")
+  local issues = {}
+  local function problem(level, message, advice)
+    issues[#issues + 1] = { level = level, message = message, advice = advice }
   end
-  if package.loaded["fidget"] then
-    vim.health.warn("Fidget is loaded; disable its progress UI to avoid duplicate status displays")
+  local plugin = package.loaded["notification-tools"]
+  local status = plugin and plugin.status()
+  if not status or not status.configured then
+    vim.health.info("Not active; notification ownership checks skipped.")
+    return
   end
-  if package.loaded["snacks.notifier"] then
-    vim.health.warn("Snacks notifier is loaded; disable it when notification-tools owns vim.notify")
-  end
-  vim.health.info("Keep Noice notify.enabled=false and lsp.progress.enabled=false")
-  if
-    package.loaded["notification-tools.messages"]
-    and require("notification-tools.messages").active()
-  then
-    vim.health.ok(
-      "Native messages attached; the consumer must keep its cmdline/prompt renderer active"
+  if status.config.notify and not status.owns_notify then
+    problem(
+      "warn",
+      "vim.notify was replaced; notifications no longer use this renderer.",
+      { "Restore the intended notification owner or disable notify in notification-tools" }
     )
-    vim.health.info("Disable competing message owners, including Noice messages, while attached")
-  else
-    vim.health.info("Native messages not attached; no cmdline provider has handed them over")
   end
+  local messages = package.loaded["notification-tools.messages"]
+  local noice = package.loaded["noice.config"]
+  local opts = noice and noice.options
+  if messages and messages.active() and opts and (opts.messages or {}).enabled then
+    problem(
+      "warn",
+      "Noice messages are enabled; native message consumers conflict.",
+      { "Disable Noice messages while notification-tools owns native messages" }
+    )
+  end
+
+  table.sort(issues, function(a, b)
+    if a.level ~= b.level then
+      return a.level == "error"
+    end
+    return a.message < b.message
+  end)
+  for _, issue in ipairs(issues) do
+    vim.health[issue.level](issue.message, issue.advice)
+  end
+  if #issues == 0 then
+    vim.health.ok("Notification runtime requirements are satisfied.")
+  end
+  vim.health.info("Details: :NotificationToolsInfo")
 end
 
 return M

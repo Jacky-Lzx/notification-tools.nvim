@@ -486,3 +486,10 @@ or commands. Repeating setup must not accumulate automatic registrations.
 available). It invalidates producer handles and scheduled renders, closes owned
 views/timers, and restores `vim.notify` only while still owned. Repeated release
 is safe. Explicit use after disposal initializes a fresh default configuration.
+
+## Health and inspection
+
+Health reports actionable failures and a compact result for applicable checks. Disabled,
+optional and not-yet-activated features do not warn solely because they are inactive.
+Inspection does not configure plugins, start services or install dependencies.
+Use `:NotificationToolsInfo` for configuration, ownership and history/task counts.

@@ -16,6 +16,9 @@ function M.clear()
 end
 
 function M.setup(tools)
+  create("NotificationToolsInfo", function()
+    vim.api.nvim_echo({ { vim.inspect(tools.status()) } }, true, {})
+  end, { desc = "Inspect notification configuration, ownership and runtime state" })
   local function history_command(callback, description)
     return function(args)
       local opts = {}
