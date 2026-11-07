@@ -2,7 +2,16 @@ local h = dofile("tests/helpers.lua")
 local tools = require("notification-tools")
 local original = vim.notify
 local function cold()
-  for _, module in ipairs({ "view", "layout", "markdown", "text", "history", "picker" }) do
+  for _, module in ipairs({
+    "view",
+    "layout",
+    "markdown",
+    "text",
+    "history",
+    "picker",
+    "content",
+    "lua",
+  }) do
     assert(
       not package.loaded["notification-tools." .. module],
       "unexpected eager module: " .. module
@@ -46,6 +55,7 @@ tools.setup({
   },
 })
 vim.notify("Log only", "info")
+vim.notify({ enabled = true }, "info")
 h.eq(nil, tools.notify("Discard", "info", { source = "drop" }))
 settle()
 cold()
@@ -93,6 +103,7 @@ h.wait(function()
   return #h.floats() == 1
 end)
 assert(vim.api.nvim_get_hl(0, { name = "NotificationToolsBodyMarkdownBold", link = false }).bold)
+assert(not package.loaded["notification-tools.lua"], "ordinary strings must not load the Lua lexer")
 tools.teardown()
 print(
   "startup lazy: early notify/LSP capture, cold empty/filtered/hidden paths, first display and reconfiguration passed"

@@ -126,8 +126,19 @@ body, groups = preview(rich)
 h.eq(nil, groups.NotificationToolsPreviewBold)
 h.eq(nil, groups.NotificationToolsMarkdownCode)
 h.eq(rich.message, groups.NotificationToolsBody)
+local inspected = vim.tbl_extend("force", {}, spec.items[2], {
+  message = vim.inspect({ enabled = true, text = "**literal**" }),
+  filetype = "lua",
+})
+body, groups = preview(inspected)
+assert(body:find(inspected.message, 1, true))
+h.eq("true", groups.NotificationToolsLuaBoolean)
+h.eq('"**literal**"', groups.NotificationToolsLuaString)
+h.eq("lua", vim.bo[preview_buf].filetype)
+h.eq(nil, groups.NotificationToolsPreviewBold)
 -- Switching entries clears the old level/source/Markdown.
 body, groups = preview(spec.items[1])
+h.eq(nil, groups.NotificationToolsLuaBoolean)
 h.eq(nil, groups.NotificationToolsWARN)
 h.eq("  ERROR  ", groups.NotificationToolsERROR)
 cancel_preview() -- An empty result or picker closure also removes our marks.

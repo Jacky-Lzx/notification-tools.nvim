@@ -79,18 +79,18 @@ local function preview(ctx)
   local item = ctx.item
   local header, marks = heading(item)
   local lines = { header, "" }
-  local function content(value, group)
+  local function content(value, group, filetype)
     value = require("notification-tools.text").clean(value)
     local offset = #lines
     vim.list_extend(lines, vim.split(value, "\n", { plain = true }))
     for _, mark in
-      ipairs(require("notification-tools.markdown").source(value, group, item.markdown))
+      ipairs(require("notification-tools.content").source(value, group, item.markdown, filetype))
     do
       mark.row = mark.row + offset
       marks[#marks + 1] = mark
     end
   end
-  content(item.message, "Body")
+  content(item.message, "Body", item.filetype)
   if item.details and item.details ~= "" then
     lines[#lines + 1] = ""
     content(item.details, "Meta")
@@ -101,7 +101,7 @@ local function preview(ctx)
   ctx.paint(function(buf, win)
     painted = buf
     api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    vim.bo[buf].filetype = item.markdown and "markdown" or "text"
+    vim.bo[buf].filetype = item.filetype or (item.markdown and "markdown" or "text")
     vim.bo[buf].syntax = ""
     pcall(vim.treesitter.stop, buf)
     api.nvim_buf_clear_namespace(buf, preview_ns, 0, -1)

@@ -7,6 +7,7 @@ tools.set_dnd("yes") -- expect-type-error
 tools.show_history({ source = 42 }) -- expect-type-error
 tools.pick_history({ title = 42 }) -- expect-type-error
 tools.notify("hello", "info", { timeout = "fast" }) -- expect-type-error
+tools.notify("hello", "info", { filetype = "python" }) -- expect-type-error
 tools.progress().id = {} -- expect-type-error
 tools.setup({ messages = { enabled = "yes" } }) -- expect-type-error
 tools.setup({ messages = { routes = { echo = "invalid" } } }) -- expect-type-error

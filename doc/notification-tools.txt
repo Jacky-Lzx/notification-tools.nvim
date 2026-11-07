@@ -21,9 +21,19 @@ API                                            *notification-tools-api*
 <
 notify(message, level?, opts?) returns an ID, or nil when filtered. Levels may
 be vim.log.levels values or case-insensitive names. opts: id, replace, title,
-icon, source, details, markdown, timeout. details is optional secondary text. timeout=0 pins a
-notification. IDs are strings or finite numbers.
+icon, source, details, markdown, filetype, timeout. details is optional secondary
+text. timeout=0 pins a notification. IDs are strings or finite numbers.
 Replacements update the corresponding history entry. Timeouts start at creation.
+
+Table messages use vim.inspect and default to Lua highlighting in popups, history
+and picker previews. No parser is required; strings stay literal and special
+inspect values such as <function 1> and <table 1> are supported.
+opts.filetype="lua" explicitly highlights a string as Lua; "text" disables body
+formatting, including automatic table highlighting. These are the only supported
+filetypes. Details still follow the Markdown option. Each replacement infers its
+body format from the new value unless opts.filetype is supplied again. History
+and filter snapshots keep the inspected string and its filetype. Stringified
+command output is not automatically guessed to be Lua.
 
 Body and details support inline Markdown by default: **bold** / __bold__,
 *italic* / _italic_, backtick code spans, ~~strike~~ and [label](url). Links show
@@ -43,8 +53,9 @@ message. Per-notice mode is inherited on explicit updates. Different modes never
 auto-merge, even with identical source text.
 
 Without an explicit id/replace, identical active notices merge: title, body,
-details, severity, icon and timeout must match. The same ID is returned, count
-increases, and the timeout restarts. Explicit updates preserve count unless the
+details, severity, icon, timeout, Markdown mode and body filetype must match.
+The same ID is returned, count increases, and the timeout restarts.
+Explicit updates preserve count unless the
 content changes. Explicit IDs stay independent. Set notification.merge_duplicates
 to false to disable automatic merging. History includes the merged count.
 
@@ -344,6 +355,13 @@ NotificationToolsMarkdownCode, NotificationToolsMarkdownLink,
 NotificationToolsERROR, NotificationToolsWARN, NotificationToolsINFO,
 NotificationToolsDEBUG, NotificationToolsTRACE, NotificationToolsProgress,
 NotificationToolsDone, NotificationToolsProgressTrack. Defaults link to standard theme groups.
+
+Lua bodies use NotificationToolsLuaField, NotificationToolsLuaString,
+NotificationToolsLuaNumber, NotificationToolsLuaBoolean, NotificationToolsLuaSpecial,
+NotificationToolsLuaPunctuation, NotificationToolsLuaOperator,
+NotificationToolsLuaKeyword and NotificationToolsLuaComment. Defaults link to
+Identifier, String, Number, Boolean, Special, Delimiter, Operator, Keyword and
+Comment respectively, following syntax colors across colorscheme changes.
 
 Preview Markdown uses NotificationToolsPreviewBold, NotificationToolsPreviewItalic,
 NotificationToolsPreviewStrike and their combinations (e.g. PreviewBoldItalic).

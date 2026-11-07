@@ -8,6 +8,7 @@
 ---@alias notification_tools.ProgressStyle 'bar'|'compact'
 ---@alias notification_tools.HistoryPolicy false|'errors'|'all'
 ---@alias notification_tools.Route 'show'|'history'|'drop'
+---@alias notification_tools.ContentFiletype 'lua'|'text'
 ---@alias notification_tools.Border 'rounded'|'single'|'double'|'solid'|'none'|''
 
 ---@class notification_tools.Padding
@@ -37,6 +38,7 @@
 ---@field details string
 ---@field icon? string
 ---@field markdown boolean
+---@field filetype? notification_tools.ContentFiletype Inferred as lua for table messages.
 ---@field timeout number Nonnegative milliseconds; 0 pins.
 
 ---@alias notification_tools.Filter fun(notice: notification_tools.FilterNotice): notification_tools.Route?
@@ -109,6 +111,7 @@
 ---@field details? string Secondary text, including inline Markdown.
 ---@field timeout? number Nonnegative milliseconds; 0 pins.
 ---@field markdown? boolean Override inline Markdown for this notice.
+---@field filetype? notification_tools.ContentFiletype Body format; tables default to lua. text disables body formatting.
 
 ---@class notification_tools.HistoryFilters
 ---@field level? notification_tools.Level Minimum severity.
@@ -160,6 +163,7 @@
 ---@field details string
 ---@field level integer Numeric vim.log.levels value.
 ---@field markdown boolean
+---@field filetype? notification_tools.ContentFiletype Body format; omitted for ordinary Markdown/plain strings.
 ---@field count integer Merged notification count.
 ---@field time integer Unix timestamp in seconds.
 ---@field order integer

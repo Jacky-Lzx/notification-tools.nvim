@@ -71,6 +71,11 @@ def run(env):
                 vim.api.nvim_set_hl(0, 'NormalFloat', {fg = light and 0x4c4f69 or 0xf8f8f2,
                   bg = light and 0xe6e9ef or 0x21222c})
                 vim.api.nvim_set_hl(0, 'Comment', {fg = light and 0x7c7f93 or 0x6272a4})
+                for name, color in pairs({Identifier=light and 0x8839ef or 0xbd93f9,
+                  String=light and 0x40a02b or 0x50fa7b, Number=light and 0xfe640b or 0xffb86c,
+                  Boolean=light and 0xd20f39 or 0xff5555, Special=light and 0x1e66f5 or 0x8be9fd}) do
+                  vim.api.nvim_set_hl(0, name, {fg=color})
+                end
                 vim.api.nvim_exec_autocmds('ColorScheme', {pattern = 'no-clear'})
               end
             end
@@ -83,10 +88,19 @@ def run(env):
             tools.setup({ notify = false, timeout = 0,
               progress = { display_delay = 0, stale_timeout = 0, done_ttl = 1000, fade_out = 200 } })
             tools.notify('NoticeWord **BoldWord**', 'warn', {title = 'NoticeTitle', details = 'DetailWord'})
+            table_id = tools.notify({TableField=true, count=424242, text='**LiteralWord**', callback=function() end},
+              'info', {title='Lua table'})
             done = tools.progress({title = 'TaskWord', percentage = 50, message = 'TaskDetail'})
             tools.progress({title = 'ActiveWord', percentage = 20})
             return themes ~= nil
         """)
+        def table_colors():
+            for word, group in (("TableField", "Identifier"), ("true", "Boolean"),
+                                ("424242", "Number"), ("**LiteralWord**", "String"),
+                                ("<function 1>", "Special")):
+                expected = lua(f"return vim.api.nvim_get_hl(0, {{name='{group}', link=false}}).fg")
+                word_color(word, expected)
+
         for light in (False, True, False):
             lua(f"apply_theme({'true' if light else 'false'})")
             flush()
@@ -95,6 +109,7 @@ def run(env):
             for word in ("NoticeWord", "BoldWord", "TaskWord", "ActiveWord"):
                 word_color(word, colors["fg"])
                 word_color(word, colors["bg"], "background")
+            table_colors()
 
         if managed:
             # Preview cancellation restores a full highlight snapshot. A later
@@ -108,12 +123,36 @@ def run(env):
         flush()
         fg = lua("return vim.api.nvim_get_hl(0, {name='NormalFloat', link=false}).fg")
         word_color("BoldWord", fg)
+        table_colors()
         lua("apply_theme(false)")
         flush()
         fg = lua("return vim.api.nvim_get_hl(0, {name='NormalFloat', link=false}).fg")
         word_color("BoldWord", fg)
+        table_colors()
         ui.request("nvim_input", ["q"])
         flush()
+
+        # Bursty updates coalesce to the latest table, and changing the input
+        # type replaces all old semantic colors without moving editor focus.
+        lua("""
+            local win = vim.api.nvim_get_current_win()
+            for i=1,30 do tools.notify({LatestField=i}, 'info', {id=table_id}) end
+            assert(vim.wait(600, function()
+              for _, w in ipairs(vim.api.nvim_list_wins()) do
+                local b = vim.api.nvim_win_get_buf(w)
+                if vim.bo[b].filetype == 'notification-tools' then
+                  local text = table.concat(vim.api.nvim_buf_get_lines(b,0,-1,false), '\\n')
+                  if text:find('LatestField = 30',1,true) then return true end
+                end
+              end
+            end, 5))
+            assert(win == vim.api.nvim_get_current_win())
+            vim.cmd.redraw()
+        """)
+        word_color("LatestField", lua("return vim.api.nvim_get_hl(0,{name='Identifier',link=false}).fg"))
+        lua("tools.notify('**ReplacementWord**', 'info', {id=table_id})")
+        flush()
+        word_color("ReplacementWord", lua("return vim.api.nvim_get_hl(0,{name='NormalFloat',link=false}).fg"))
 
         lua("done:finish(); now = 1900; vim.api.nvim_exec_autocmds('VimResized', {})")
         flush()
@@ -136,7 +175,7 @@ def run(env):
             word_color("ActiveWord", 0x314159)
         lua("tools.teardown(); model.now = clock")
         print("theme RGB UI: " + ("managed Dracula/Latte" if managed else "standalone no-clear themes")
-              + ", dark/light/dark, open history, Markdown and independent task fades"
+              + ", dark/light/dark, Lua table colors, burst replacements, open history, Markdown and independent task fades"
               + (", snapshot restoration and palette refresh" if managed else "") + " passed")
     finally:
         ui.close()

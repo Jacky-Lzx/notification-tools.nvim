@@ -72,7 +72,7 @@ tools.notify("Connected", "info", { id = id, timeout = 1500 })
 tools.dismiss(id)
 ```
 
-`notify(message, level?, opts?)` returns a string/number ID, or `nil` when discarded. Levels accept `vim.log.levels` values or case-insensitive names: `trace`, `debug`, `info`, `warn`, `error`, `off`. Table messages use `vim.inspect`.
+`notify(message, level?, opts?)` returns a string/number ID, or `nil` when discarded. Levels accept `vim.log.levels` values or case-insensitive names: `trace`, `debug`, `info`, `warn`, `error`, `off`. Table messages use `vim.inspect` and automatically receive Lua highlighting in popups, history, and picker previews, without requiring a parser. Strings inside a table stay literal, including Markdown punctuation.
 
 | Option             | Behavior                                                              |
 | ------------------ | --------------------------------------------------------------------- |
@@ -81,8 +81,17 @@ tools.dismiss(id)
 | `details` / `icon` | Optional secondary text and severity icon override.                   |
 | `timeout`          | Lifetime in milliseconds; `0` pins the notification.                  |
 | `markdown`         | Override inline Markdown for one notification.                        |
+| `filetype`         | Body format: `"lua"` for Lua highlighting, `"text"` for literal text. Tables default to `"lua"`. |
 
-Without an explicit ID, identical active notifications merge into one card, show `×N`, and restart their timeout. Matching includes source, title, body, details, severity, icon, timeout, and Markdown mode. Explicit updates preserve the count until content changes. Set `notification.merge_duplicates = false` to disable merging.
+Without an explicit ID, identical active notifications merge into one card, show `×N`, and restart their timeout. Matching includes source, title, body, details, severity, icon, timeout, Markdown mode, and body filetype. Explicit updates preserve the count until content changes. Set `notification.merge_duplicates = false` to disable merging.
+
+```lua
+tools.notify({ enabled = true, count = 42 }, "info") -- Automatic Lua highlighting.
+tools.notify(vim.inspect(result), "info", { filetype = "lua" })
+tools.notify(result, "info", { filetype = "text" }) -- Disable table highlighting.
+```
+
+Only `"lua"` and `"text"` are supported filetypes. The body filetype takes precedence over Markdown; details still follow the `markdown` option. Each replacement infers its body format from the new message unless `filetype` is explicitly supplied. Replacing a table with a string restores normal string rendering. History/filter snapshots retain the inspected string and its `filetype`. Already-stringified command output needs an explicit `filetype = "lua"`; arbitrary strings are not guessed to be tables.
 
 ### Inline Markdown, original text preserved
 
@@ -306,6 +315,8 @@ When theme-tools is already loaded, notifications subscribe to its shared semant
 
 Use `NotificationToolsNotificationNormal` and `NotificationToolsProgressNormal` for separate surfaces. The empty bar track uses `NotificationToolsProgressTrack`. Other groups include `Title`, `Body`, `TaskTitle`, `Meta`, `Source`, `ERROR/WARN/INFO/DEBUG/TRACE`, `Progress`, `Done`, `Cancelled`, `MarkdownCode`, and `MarkdownLink`, each prefixed with `NotificationTools`.
 
+Lua content uses `LuaField`, `LuaString`, `LuaNumber`, `LuaBoolean`, `LuaSpecial`, `LuaPunctuation`, `LuaOperator`, `LuaKeyword`, and `LuaComment`, each prefixed with `NotificationTools`. These link to standard syntax groups such as `Identifier`, `String`, `Number`, and `Boolean`, and follow colorscheme changes.
+
 ## Integrate with your setup
 
 Disable other notification/progress owners to avoid duplicate displays: Fidget progress, Snacks notifier, or Noice's `notify` and `lsp.progress` features, depending on your setup.
@@ -441,7 +452,7 @@ To regenerate the images, run `python3 scripts/screenshots.py` (Neovim, Python 3
 - `init.lua` owns the public API, integration wiring, and instance lifetime.
 - `state.lua` owns notification/task transitions, retention, snapshots, and deadlines.
 - `scheduler.lua` coalesces updates and manages a cancellable one-shot timer.
-- `text.lua`, `markdown.lua`, and `layout.lua` handle bounded text processing and cached layout plans.
+- `text.lua`, `content.lua`, `lua.lua`, `markdown.lua`, and `layout.lua` handle text processing, content highlighting, and cached layout plans.
 - `view.lua` applies row-level floating-window changes; `history.lua` owns browsing and per-record formatting caches.
 - `records.lua` filters records without importing UI code; `commands.lua` manages command registration and ownership.
 

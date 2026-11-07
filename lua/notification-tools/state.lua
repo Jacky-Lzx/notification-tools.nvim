@@ -86,6 +86,12 @@ function M.notify(state, message, level, opts, route)
     "timeout must be finite and >= 0"
   )
   local message_text = M.text(message)
+  -- Infer from each new value, never from an earlier replacement's format.
+  local filetype = opts.filetype
+  assert(filetype == nil or filetype == "lua" or filetype == "text", "filetype must be lua or text")
+  if filetype == nil and type(message) == "table" then
+    filetype = "lua"
+  end
   local title = M.text(opts.title or (old and old.title) or "Notification")
   local source = M.text(opts.source or (old and old.source) or title)
   local details = opts.details ~= nil and M.text(opts.details) or (old and old.details) or ""
@@ -110,6 +116,7 @@ function M.notify(state, message, level, opts, route)
       details = details,
       icon = icon,
       markdown = markdown,
+      filetype = filetype,
       timeout = timeout,
     })
     if ok and (result == nil or vim.tbl_contains({ "show", "history", "drop" }, result)) then
@@ -141,6 +148,7 @@ function M.notify(state, message, level, opts, route)
         and item.icon == icon
         and item.timeout == timeout
         and item.markdown == markdown
+        and item.filetype == filetype
       then
         old, id = item, item.id
         break
@@ -156,6 +164,7 @@ function M.notify(state, message, level, opts, route)
     and old.details == details
     and old.icon == icon
     and old.markdown == markdown
+    and old.filetype == filetype
   state.serial = state.serial + 1
   local notice = {
     id = id,
@@ -168,6 +177,7 @@ function M.notify(state, message, level, opts, route)
     details = details,
     icon = icon,
     markdown = markdown,
+    filetype = filetype,
     count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
     time = os.time(),
     order = old and old.order or state.serial,
@@ -175,6 +185,7 @@ function M.notify(state, message, level, opts, route)
         and old.message == message_text
         and old.details == details
         and old.markdown == markdown
+        and old.filetype == filetype
         and old.content_revision
       or state.serial,
     revision = state.serial,

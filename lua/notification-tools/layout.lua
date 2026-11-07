@@ -1,6 +1,7 @@
 local M = {}
 local model = require("notification-tools.state")
 local markdown
+local content
 local text = require("notification-tools.text")
 local text_cache = setmetatable({}, { __mode = "k" })
 local shared_cache = setmetatable({}, { __mode = "k" })
@@ -110,6 +111,7 @@ end
 
 local function formatted(notice, config)
   markdown = markdown or require("notification-tools.markdown")
+  content = content or require("notification-tools.content")
   local enabled = notice.markdown
   if enabled == nil then
     enabled = config.notification.markdown
@@ -125,12 +127,14 @@ local function formatted(notice, config)
     or cached.message ~= notice.message
     or cached.details ~= notice.details
     or cached.enabled ~= enabled
+    or cached.filetype ~= notice.filetype
   then
     cached = {
       enabled = enabled,
+      filetype = notice.filetype,
       message = notice.message,
       details = notice.details,
-      body = markdown.parse(M.clean(notice.message), "Body", enabled),
+      body = content.parse(M.clean(notice.message), "Body", enabled, notice.filetype),
       extra = markdown.parse(M.clean(notice.details), "Meta", enabled),
       widths = {},
     }
@@ -253,6 +257,7 @@ function M.notification(notice, config, maximum, height, minimum)
         or "●"
     ),
     notice.markdown,
+    notice.filetype or "",
     notice.count or 1,
     notice.time,
   }

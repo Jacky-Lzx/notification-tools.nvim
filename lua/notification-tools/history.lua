@@ -2,7 +2,7 @@
 local M = {}
 local api = vim.api
 local clean = require("notification-tools.layout").clean
-local markdown = require("notification-tools.markdown")
+local content = require("notification-tools.content")
 local levels = require("notification-tools.config")
 local ns
 local names = { [0] = "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF" }
@@ -113,6 +113,7 @@ local function formatted(item, cached)
     or body.message ~= item.message
     or body.details ~= item.details
     or body.markdown ~= item.markdown
+    or body.filetype ~= item.filetype
   then
     body = {
       lines = {},
@@ -120,19 +121,20 @@ local function formatted(item, cached)
       message = item.message,
       details = item.details,
       markdown = item.markdown,
+      filetype = item.filetype,
     }
-    local function content(value, group)
+    local function append_content(value, group, filetype)
       value = clean(value)
       local offset = #body.lines
       vim.list_extend(body.lines, vim.split(value, "\n", { plain = true }))
-      for _, mark in ipairs(markdown.source(value, group, item.markdown)) do
+      for _, mark in ipairs(content.source(value, group, item.markdown, filetype)) do
         mark.row = mark.row + offset
         body.marks[#body.marks + 1] = mark
       end
     end
-    content(item.message, "Body")
+    append_content(item.message, "Body", item.filetype)
     if item.details and item.details ~= "" then
-      content(item.details, "Meta")
+      append_content(item.details, "Meta")
     end
   end
   local header, marks = "", {}

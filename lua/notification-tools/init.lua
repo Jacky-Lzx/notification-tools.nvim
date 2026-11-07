@@ -77,7 +77,7 @@ function M.status()
   }
 end
 
----@param message any Strings are displayed directly; tables use vim.inspect.
+---@param message any Strings use inline Markdown; tables use vim.inspect with Lua highlighting.
 ---@param level? notification_tools.Level
 ---@param opts? notification_tools.NotifyOptions
 ---@param route? notification_tools.Route
@@ -110,7 +110,7 @@ local function notify(message, level, opts, route)
 end
 
 ---Display a top-right notification. timeout=0 pins it until dismissed.
----@param message any Strings are displayed directly; tables use vim.inspect.
+---@param message any Strings use inline Markdown; tables use vim.inspect with Lua highlighting.
 ---@param level? notification_tools.Level
 ---@param opts? notification_tools.NotifyOptions
 ---@return notification_tools.ID? id Nil when filtered or discarded.
