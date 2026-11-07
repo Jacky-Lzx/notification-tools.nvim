@@ -630,6 +630,44 @@
         "path:$NOTIFICATION_TOOLS_LAZY_ROOT/lua/lazy/init.lua"
       ],
       "timeout": 90
+    },
+    {
+      "name": "picker_components",
+      "suite": "integration",
+      "command": [
+        "{nvim}",
+        "--headless",
+        "-u",
+        "NONE",
+        "-i",
+        "NONE",
+        "--noplugin",
+        "-n",
+        "-l",
+        "tests/picker_components.lua"
+      ],
+      "files": [
+        "tests/picker_components.lua"
+      ],
+      "requires": [
+        "path:{root}/../selection-tools.nvim/lua"
+      ],
+      "timeout": 90
+    },
+    {
+      "name": "picker_ui",
+      "suite": "integration",
+      "command": [
+        "{python}",
+        "tests/picker_ui.py"
+      ],
+      "files": [
+        "tests/picker_ui.py"
+      ],
+      "requires": [
+        "path:{root}/../selection-tools.nvim/lua"
+      ],
+      "timeout": 60
     }
   ],
   "support": {
@@ -642,5 +680,12 @@
     "tests/history_tui.lua": "Interactive terminal acceptance; set NOTIFICATION_TOOLS_TUI_EXIT=1 and NOTIFICATION_TOOLS_TUI_RESULT for unattended use",
     "tests/tui.lua": "Interactive terminal acceptance; set NOTIFICATION_TOOLS_TUI_EXIT=1 and NOTIFICATION_TOOLS_TUI_RESULT for unattended use",
     "tests/reading_tui.lua": "Interactive terminal acceptance; set NOTIFICATION_TOOLS_TUI_EXIT=1 and NOTIFICATION_TOOLS_TUI_RESULT for unattended use"
+  },
+  "fixtures": {
+    "selection-tools.nvim": {
+      "repository": "Jacky-Lzx/selection-tools.nvim",
+      "revision": "6685844c034e1cab37de786ebbc1d0e673a87196",
+      "path": "{root}/../selection-tools.nvim"
+    }
   }
 }

@@ -1,5 +1,7 @@
 # notification-tools.nvim
 
+Notification history uses selection-tools time, level, title and content components. Time inherits `component_defaults.time` and remains searchable. Notification semantic colors use component-local highlights.
+
 Readable notifications, grouped progress and searchable history.
 
 ![Neovim showing Markdown notifications at the top right and grouped LSP and build progress at the bottom right](.github/assets/overview.png)

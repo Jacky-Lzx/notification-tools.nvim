@@ -63,10 +63,19 @@ for _, item in ipairs(spec.items) do
   content_column = content_column or column
   h.eq(content_column, column)
   local groups = {}
-  for _, range in ipairs(spec.highlight_item(item)) do
-    assert(range[1] >= 0 and range[2] <= #label and range[1] < range[2])
-    assert(range.priority < 110, "semantic colors must allow fuzzy matches to stand out")
-    groups[range.hl] = label:sub(range[1] + 1, range[2])
+  for _, component in ipairs(spec.components) do
+    local value = component.get and component.get(item) or component.field and item[component.field]
+    if component.kind == "text" and value then
+      value = tostring(value)
+      if component.hl then
+        groups[component.hl] = value
+      end
+      for _, range in ipairs(component.highlights and component.highlights(item) or {}) do
+        assert(range[1] >= 0 and range[2] <= #value and range[1] < range[2])
+        assert((range.priority or 100) < 110)
+        groups[range.hl] = value:sub(range[1] + 1, range[2])
+      end
+    end
   end
   h.eq(item.title, groups.NotificationToolsTitle)
   local level = item.level == vim.log.levels.ERROR and "ERROR" or "WARN"

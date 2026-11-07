@@ -41,6 +41,7 @@ local function columns(items)
     separator()
     append(titles[item], "NotificationToolsTitle", title_width)
     separator()
+    local body_start, body_mark = #label, #highlights
     append(single_line(item.message), "NotificationToolsBody")
     if item.details and item.details ~= "" then
       append(" · " .. single_line(item.details), "NotificationToolsMeta")
@@ -48,7 +49,19 @@ local function columns(items)
     if item.source and item.source ~= item.title then
       append(" [" .. single_line(item.source) .. "]", "NotificationToolsSource")
     end
-    rows[item] = { text = label, highlights = highlights }
+    local body_highlights = {}
+    for i = body_mark + 1, #highlights do
+      local mark = highlights[i]
+      body_highlights[#body_highlights + 1] =
+        { mark[1] - body_start, mark[2] - body_start, hl = mark.hl }
+    end
+    rows[item] = {
+      text = label,
+      highlights = highlights,
+      title = titles[item],
+      body = label:sub(body_start + 1),
+      body_highlights = body_highlights,
+    }
   end
   return rows
 end
@@ -166,9 +179,73 @@ function M.open(records, on_choice)
     format_item = function(item)
       return rows[item].text
     end,
-    highlight_item = function(item)
-      return rows[item].highlights
-    end,
+    components = {
+      { kind = "time", field = "time", format = "%H:%M:%S", searchable = true },
+      {
+        kind = "text",
+        get = function()
+          return "│"
+        end,
+        searchable = false,
+        hl = "NotificationToolsMeta",
+      },
+      {
+        kind = "text",
+        width = 5,
+        hl = false,
+        get = function(item)
+          return names[item.level]
+        end,
+        highlights = function(item)
+          local level = names[item.level]
+          return {
+            {
+              0,
+              #level,
+              hl = level == "OFF" and "NotificationToolsMeta" or ("NotificationTools" .. level),
+            },
+          }
+        end,
+      },
+      {
+        kind = "text",
+        get = function()
+          return "│"
+        end,
+        searchable = false,
+        hl = "NotificationToolsMeta",
+      },
+      {
+        kind = "text",
+        get = function(item)
+          return rows[item].title
+        end,
+        hl = "NotificationToolsTitle",
+        max_width = 30,
+        priority = 80,
+      },
+      {
+        kind = "text",
+        get = function()
+          return "│"
+        end,
+        searchable = false,
+        hl = "NotificationToolsMeta",
+      },
+      {
+        kind = "text",
+        grow = 1,
+        min_width = 12,
+        truncate = "match",
+        hl = false,
+        get = function(item)
+          return rows[item].body
+        end,
+        highlights = function(item)
+          return rows[item].body_highlights
+        end,
+      },
+    },
     preview = { enabled = true, highlight_line = false, highlight_matches = false },
     previewer = preview,
     on_close = function(closed)

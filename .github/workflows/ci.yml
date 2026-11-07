@@ -59,11 +59,17 @@ jobs:
           lua-language-server --version
       - name: Runtime and formatting checks
         run: sh tests/run.sh --output "$RUNNER_TEMP/test-results"
+      - name: Install pinned selection-tools fixture
+        run: python3 tests/run.py fixtures
+      - name: Picker component and rendered UI integration
+        run: python3 tests/run.py integration --filter picker_ --locked --output "$RUNNER_TEMP/component-results"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/test-results
+          path: |
+            ${{ runner.temp }}/test-results
+            ${{ runner.temp }}/component-results
           if-no-files-found: ignore
       - name: Public API type contracts
         run: python3 scripts/check_types.py
