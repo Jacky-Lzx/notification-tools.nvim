@@ -80,10 +80,16 @@ def main():
         lua("tools.dismiss(); vim.cmd.enew()")
         keys("iundo-redo-check<Esc>")
         before_undo = lua("return #tools.history()")
+        semantic_undo = lua("return vim.fn.has('nvim-0.11') == 1")
         for command, expected in [("u", ""), ("<C-r>", "undo-redo-check")]:
             keys(command)
             assert lua("return vim.api.nvim_get_current_line()") == expected
-            assert lua("return #tools.history()") == before_undo
+            if semantic_undo:
+                assert lua("return #tools.history()") == before_undo
+            else:
+                # 0.10 sends an empty kind for undo/redo; preserve that message
+                # instead of guessing from localized text and hiding real echoes.
+                assert lua("return tools.history()[#tools.history()].title") == "Neovim"
             assert "Neovim: undo" not in screen() and "Neovim: redo" not in screen(), screen()
         lua("vim.bo.modified = false")
 

@@ -518,3 +518,7 @@ Inspection does not configure plugins, start services or install dependencies.
 Use `:NotificationToolsInfo` for configuration, ownership and history/task counts.
 
 [Test workflow](tests/README.md): registered suites, filtering, required fixtures and retained failure evidence.
+
+Neovim 0.10 sends undo/redo feedback with an empty message kind, so it remains
+ordinary native feedback. Neovim 0.11+ supplies semantic kinds and the default
+`undo`/`redo` routes suppress those messages without matching localized text.
