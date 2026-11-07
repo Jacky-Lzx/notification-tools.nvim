@@ -83,7 +83,7 @@ tools.dismiss(id)
 | `markdown`         | Override inline Markdown for one notification.                        |
 | `filetype`         | Body format: `"lua"` for Lua highlighting, `"text"` for literal text. Tables default to `"lua"`. |
 
-Without an explicit ID, identical active notifications merge into one card, show `×N`, and restart their timeout. Matching includes source, title, body, details, severity, icon, timeout, Markdown mode, and body filetype. Explicit updates preserve the count until content changes. Set `notification.merge_duplicates = false` to disable merging.
+Without an explicit ID, identical active notifications merge into one card, show `×N`, and restart their timeout. Matching includes source, title, body, details, severity, icon, timeout, Markdown mode, body filetype, and formatting spans. Explicit updates preserve the count until content changes. Set `notification.merge_duplicates = false` to disable merging.
 
 ```lua
 tools.notify({ enabled = true, count = 42 }, "info") -- Automatic Lua highlighting.
@@ -92,6 +92,18 @@ tools.notify(result, "info", { filetype = "text" }) -- Disable table highlightin
 ```
 
 Only `"lua"` and `"text"` are supported filetypes. The body filetype takes precedence over Markdown; details still follow the `markdown` option. Each replacement infers its body format from the new message unless `filetype` is explicitly supplied. Replacing a table with a string restores normal string rendering. History/filter snapshots retain the inspected string and its `filetype`. Already-stringified command output needs an explicit `filetype = "lua"`; arbitrary strings are not guessed to be tables.
+
+For mixed reports, `spans` formats selected parts of the original body. Ranges use zero-based byte offsets with an exclusive `finish`; they must be ordered, non-overlapping, and aligned to UTF-8 character boundaries. Each span specifies either `filetype = "lua"`/`"text"` or a named `hl_group`. Unmarked text follows the notice's usual format. Ranges survive wrapping, clipping, history and picker previews; replacements must supply them again.
+
+```lua
+local heading, value = "Runtime:\n", vim.inspect(runtime)
+tools.notify(heading .. value, "info", {
+  markdown = false,
+  spans = { { start = #heading, finish = #heading + #value, filetype = "lua" } },
+})
+```
+
+Reusable producers can keep passing a string to `vim.notify` with `filetype`/`spans` metadata. This preserves compatibility with Neovim's default notifier, which accepts strings and ignores this optional formatting metadata.
 
 ### Inline Markdown, original text preserved
 
@@ -359,7 +371,7 @@ The consumer must handle `cmdline_*`, completion and interactive prompts, includ
 
 Older Neovim versions emit numbered choices such as `inputlist()` as unnamed messages while `mode(1)` starts with `r`. Those non-fast prompt events are also left to the consumer; they must not be queued as ordinary notifications while Neovim waits for the answer.
 
-Captured non-interactive `msg_show` events use source `neovim`, a kind-specific title and literal text (`markdown = false`). Errors (`emsg`, `echoerr`, `lua_error`, `rpc_error`) map to ERROR; `wmsg` maps to WARN; other kinds use INFO. Original chunk text is preserved, but native per-chunk colors are not currently rendered. Append, replace-last and native message IDs update the corresponding record. Native messages have explicit IDs and do not auto-merge as repeated ordinary notifications do.
+Captured non-interactive `msg_show` events use source `neovim`, a kind-specific title and literal text (`markdown = false`). Errors (`emsg`, `echoerr`, `lua_error`, `rpc_error`) map to ERROR; `wmsg` maps to WARN; other kinds use INFO. Original chunk text is preserved. Neovim 0.12+ also supplies semantic highlight-group IDs, which retain each chunk's colors and styles across append, replacement, history, previews, and theme changes. Older protocols retain literal text without guessing group names from screen attribute IDs. Native messages have explicit IDs and do not auto-merge as repeated ordinary notifications do.
 
 Routes map a message kind to `show`, `history` or `drop`; unlisted kinds use `show`. Undo/redo feedback is dropped by default. Override a default with `"show"` to restore its popups. The global severity, ordinary notification filter and DND still apply; a history-only route cannot be promoted to a popup by the filter. The ingress queue and remembered native IDs are bounded by `max_pending`; an overloaded queue keeps the newest events. `msg_clear` resets append/replacement tracking while cards retain their configured lifetime.
 

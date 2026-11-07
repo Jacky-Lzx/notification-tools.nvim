@@ -28,6 +28,38 @@ function M.text(value)
   return type(value) == "table" and vim.inspect(value) or tostring(value or "")
 end
 
+local function spans(value, ranges)
+  if ranges == nil then
+    return nil
+  end
+  assert(type(ranges) == "table" and vim.islist(ranges), "spans must be a list")
+  local previous = 0
+  for _, range in ipairs(ranges) do
+    assert(type(range) == "table", "span must be a table")
+    assert(
+      type(range.start) == "number"
+        and range.start % 1 == 0
+        and range.start >= previous
+        and type(range.finish) == "number"
+        and range.finish % 1 == 0
+        and range.finish > range.start
+        and range.finish <= #value,
+      "span ranges must be ordered, non-overlapping byte offsets within the message"
+    )
+    for _, offset in ipairs({ range.start, range.finish }) do
+      local byte = value:byte(offset + 1)
+      assert(not byte or byte < 128 or byte >= 192, "span offsets must not split UTF-8 characters")
+    end
+    assert(
+      (type(range.hl_group) == "string" and range.hl_group ~= "" and range.filetype == nil)
+        or (range.hl_group == nil and (range.filetype == "lua" or range.filetype == "text")),
+      "span must specify hl_group or filetype (lua/text)"
+    )
+    previous = range.finish
+  end
+  return #ranges > 0 and vim.deepcopy(ranges) or nil
+end
+
 function M.valid_id(id)
   assert(type(id) == "string" or type(id) == "number", "id must be a string or number")
   assert(type(id) ~= "number" or (id == id and math.abs(id) < math.huge), "id must be finite")
@@ -86,6 +118,7 @@ function M.notify(state, message, level, opts, route)
     "timeout must be finite and >= 0"
   )
   local message_text = M.text(message)
+  local message_spans = spans(message_text, opts.spans)
   -- Infer from each new value, never from an earlier replacement's format.
   local filetype = opts.filetype
   assert(filetype == nil or filetype == "lua" or filetype == "text", "filetype must be lua or text")
@@ -117,6 +150,7 @@ function M.notify(state, message, level, opts, route)
       icon = icon,
       markdown = markdown,
       filetype = filetype,
+      spans = vim.deepcopy(message_spans),
       timeout = timeout,
     })
     if ok and (result == nil or vim.tbl_contains({ "show", "history", "drop" }, result)) then
@@ -149,6 +183,7 @@ function M.notify(state, message, level, opts, route)
         and item.timeout == timeout
         and item.markdown == markdown
         and item.filetype == filetype
+        and vim.deep_equal(item.spans, message_spans)
       then
         old, id = item, item.id
         break
@@ -165,6 +200,7 @@ function M.notify(state, message, level, opts, route)
     and old.icon == icon
     and old.markdown == markdown
     and old.filetype == filetype
+    and vim.deep_equal(old.spans, message_spans)
   state.serial = state.serial + 1
   local notice = {
     id = id,
@@ -178,6 +214,7 @@ function M.notify(state, message, level, opts, route)
     icon = icon,
     markdown = markdown,
     filetype = filetype,
+    spans = message_spans,
     count = same and ((old.count or 1) + (not explicit and 1 or 0)) or 1,
     time = os.time(),
     order = old and old.order or state.serial,
@@ -186,6 +223,7 @@ function M.notify(state, message, level, opts, route)
         and old.details == details
         and old.markdown == markdown
         and old.filetype == filetype
+        and vim.deep_equal(old.spans, message_spans)
         and old.content_revision
       or state.serial,
     revision = state.serial,

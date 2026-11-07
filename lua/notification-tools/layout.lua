@@ -128,13 +128,15 @@ local function formatted(notice, config)
     or cached.details ~= notice.details
     or cached.enabled ~= enabled
     or cached.filetype ~= notice.filetype
+    or not vim.deep_equal(cached.spans, notice.spans)
   then
     cached = {
       enabled = enabled,
       filetype = notice.filetype,
+      spans = notice.spans,
       message = notice.message,
       details = notice.details,
-      body = content.parse(M.clean(notice.message), "Body", enabled, notice.filetype),
+      body = content.parse(notice.message, "Body", enabled, notice.filetype, nil, notice.spans),
       extra = markdown.parse(M.clean(notice.details), "Meta", enabled),
       widths = {},
     }
@@ -258,6 +260,7 @@ function M.notification(notice, config, maximum, height, minimum)
     ),
     notice.markdown,
     notice.filetype or "",
+    notice.spans or false,
     notice.count or 1,
     notice.time,
   }

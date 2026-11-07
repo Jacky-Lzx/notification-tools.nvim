@@ -26,6 +26,17 @@ def main():
     def screen():
         return "\n".join("".join(cell[0] for cell in row) for row in ui.grid)
 
+    def word_color(word, expected):
+        matches = 0
+        for row in ui.grid:
+            text = "".join(cell[0] for cell in row)
+            start = text.find(word)
+            if start >= 0:
+                matches += 1
+                for _, attr in row[start:start + len(word)]:
+                    assert ui.attrs.get(attr, {}).get("foreground", ui.fg) == expected, (word, expected)
+        assert matches, f"Missing visible text: {word}"
+
     try:
         ui.request("nvim_ui_attach", [100, 32, {"rgb": True, "ext_linegrid": True}])
         lua("vim.opt.rtp:prepend(vim.fn.getcwd()); tools = require('notification-tools'); "
@@ -45,6 +56,22 @@ def main():
         assert "**captured**" in screen(), screen()
         assert lua("return vim.tbl_contains(provider.events, 'cmdline_show')")
         assert lua("return vim.tbl_contains(provider.events, 'cmdline_hide')")
+        lua("vim.api.nvim_set_hl(0,'WarningMsg',{fg=0xffaa11}); "
+            "vim.api.nvim_echo({{'NativeWord','WarningMsg'},{' plain'}},true,{});vim.wait(60);vim.cmd.redraw()")
+        # Semantic group IDs were added to native chunks in Neovim 0.12.
+        if lua("return vim.fn.has('nvim-0.12') == 1"):
+            word_color("NativeWord", 0xffaa11)
+            lua("vim.api.nvim_set_hl(0,'WarningMsg',{fg=0x11aaee}); "
+                "vim.api.nvim_exec_autocmds('ColorScheme',{});vim.wait(60);vim.cmd.redraw()")
+            word_color("NativeWord", 0x11aaee)
+        lua("""
+            vim.api.nvim_set_hl(0,'Boolean',{fg=0xcc55aa})
+            local text = 'Literal **keep**\\n{ flag = true }'
+            tools.notify(text, 'info', {markdown=false, spans={{start=17,finish=#text,filetype='lua'}}})
+            vim.wait(60);vim.cmd.redraw()
+        """)
+        assert "Literal **keep**" in screen()
+        word_color("true", 0xcc55aa)
         keys(":echo")
         assert ":echo" in screen(), screen()
         keys("<Esc>")
@@ -84,6 +111,8 @@ def main():
         keys(":messages<CR>")
         assert lua("return vim.bo.filetype") == "notification-tools-history"
         assert "native-before" in lua("return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\\n')")
+        if lua("return vim.fn.has('nvim-0.12') == 1"):
+            word_color("NativeWord", 0x11aaee)
         assert lua("return #tools.history()") == before
         keys("<CR>")
         assert lua("return vim.b.notification_tools_detail")

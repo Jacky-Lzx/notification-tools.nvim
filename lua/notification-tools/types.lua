@@ -9,6 +9,13 @@
 ---@alias notification_tools.HistoryPolicy false|'errors'|'all'
 ---@alias notification_tools.Route 'show'|'history'|'drop'
 ---@alias notification_tools.ContentFiletype 'lua'|'text'
+
+---Zero-based byte ranges into the original message, sorted and non-overlapping.
+---@class notification_tools.ContentSpan
+---@field start integer Inclusive start byte.
+---@field finish integer Exclusive end byte.
+---@field hl_group? string A named highlight group; mutually exclusive with filetype.
+---@field filetype? notification_tools.ContentFiletype Format only this part of the message.
 ---@alias notification_tools.Border 'rounded'|'single'|'double'|'solid'|'none'|''
 
 ---@class notification_tools.Padding
@@ -39,6 +46,7 @@
 ---@field icon? string
 ---@field markdown boolean
 ---@field filetype? notification_tools.ContentFiletype Inferred as lua for table messages.
+---@field spans? notification_tools.ContentSpan[] Independent per-part formatting.
 ---@field timeout number Nonnegative milliseconds; 0 pins.
 
 ---@alias notification_tools.Filter fun(notice: notification_tools.FilterNotice): notification_tools.Route?
@@ -112,6 +120,7 @@
 ---@field timeout? number Nonnegative milliseconds; 0 pins.
 ---@field markdown? boolean Override inline Markdown for this notice.
 ---@field filetype? notification_tools.ContentFiletype Body format; tables default to lua. text disables body formatting.
+---@field spans? notification_tools.ContentSpan[] Override formatting for parts of the body.
 
 ---@class notification_tools.HistoryFilters
 ---@field level? notification_tools.Level Minimum severity.
@@ -164,6 +173,7 @@
 ---@field level integer Numeric vim.log.levels value.
 ---@field markdown boolean
 ---@field filetype? notification_tools.ContentFiletype Body format; omitted for ordinary Markdown/plain strings.
+---@field spans? notification_tools.ContentSpan[] Per-part body formatting in original byte offsets.
 ---@field count integer Merged notification count.
 ---@field time integer Unix timestamp in seconds.
 ---@field order integer

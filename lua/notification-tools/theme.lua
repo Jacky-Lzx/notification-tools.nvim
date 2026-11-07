@@ -2,6 +2,7 @@
 local M = {}
 local api = vim.api
 local palette, stop, changed
+local external = {}
 
 function M.definition(name)
   -- Resolve global links without the current window's winhighlight remapping.
@@ -23,6 +24,15 @@ local function apply(name, value)
   local target = "NotificationToolsDefault" .. name
   api.nvim_set_hl(0, target, value)
   api.nvim_set_hl(0, "NotificationTools" .. name, { default = true, link = target })
+end
+
+function M.external(group)
+  local key = "External" .. api.nvim_get_hl_id_by_name(group)
+  if not external[key] then
+    external[key] = group
+    apply(key, { link = group })
+  end
+  return key
 end
 
 function M.highlights()
@@ -100,6 +110,9 @@ function M.highlights()
   end
   for name, value in pairs(groups) do
     apply(name, value)
+  end
+  for name, group in pairs(external) do
+    apply(name, { link = group })
   end
 end
 

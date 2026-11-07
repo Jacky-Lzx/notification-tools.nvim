@@ -33,6 +33,10 @@ local id = api.notify({ "message" }, "Warn", { title = "Build", timeout = 0 })
 api.notify("updated", 3, { replace = id and { id = id } or nil, markdown = false })
 api.notify("{ enabled = true }", "info", { filetype = "lua" })
 api.notify({ enabled = true }, "info", { filetype = "text" })
+api.notify("Info: { enabled = true }", "info", {
+  markdown = false,
+  spans = { { start = 6, finish = 24, filetype = "lua" } },
+})
 local task = api.progress({ id = "consumer:one", percentage = 0, history = false })
 ---@type notification_tools.TaskHandle
 local updated = task:update({ percentage = 65, message = "Working", history = "all" })

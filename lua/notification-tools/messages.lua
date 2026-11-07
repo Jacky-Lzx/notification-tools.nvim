@@ -14,11 +14,29 @@ local function interactive(kind)
 end
 
 local function text(chunks)
-  local parts = {}
+  local parts, spans, offset = {}, {}, 0
   for _, chunk in ipairs(chunks or {}) do
     parts[#parts + 1] = chunk[2]
+    -- Neovim 0.12 supplies a semantic highlight-group ID separately from the
+    -- screen attribute ID. Older protocols have no safe attr-to-group mapping.
+    if chunk[3] and chunk[3] > 0 and #chunk[2] > 0 then
+      local ok, group = pcall(vim.fn.synIDattr, chunk[3], "name")
+      if ok and group ~= "" then
+        spans[#spans + 1] = { start = offset, finish = offset + #chunk[2], hl_group = group }
+      end
+    end
+    offset = offset + #chunk[2]
   end
-  return table.concat(parts)
+  return table.concat(parts), #spans > 0 and spans or nil
+end
+
+local function append(previous, content, spans)
+  local ranges = vim.deepcopy(previous.spans or {})
+  for _, span in ipairs(spans or {}) do
+    span.start, span.finish = span.start + #previous.message, span.finish + #previous.message
+    ranges[#ranges + 1] = span
+  end
+  return previous.message .. content, #ranges > 0 and ranges or nil
 end
 
 local function level(kind)
@@ -38,9 +56,11 @@ end
 local function history(entries)
   local records = {}
   for _, entry in ipairs(entries) do
-    local kind, content, append = entry[1], text(entry[2]), entry[3]
-    if append and #records > 0 then
-      records[#records].message = records[#records].message .. content
+    local kind, continuation = entry[1], entry[3]
+    local content, spans = text(entry[2])
+    if continuation and #records > 0 then
+      local previous = records[#records]
+      previous.message, previous.spans = append(previous, content, spans)
     else
       records[#records + 1] = {
         id = model.id(),
@@ -51,6 +71,7 @@ local function history(entries)
         source = "neovim",
         details = "",
         markdown = false,
+        spans = spans,
         count = 1,
         time = os.time(), -- The native history protocol has no timestamps.
         order = #records + 1,
@@ -63,19 +84,19 @@ local function history(entries)
 end
 
 local function show(s, args)
-  local kind, chunks, replace, _, append, native_id = unpack(args)
-  local content = text(chunks)
+  local kind, chunks, replace, _, continuation, native_id = unpack(args)
+  local content, spans = text(chunks)
   -- Zero is the native unassigned ID, including on versions predating IDs.
   local keyed = native_id ~= nil and native_id ~= 0
   local previous = keyed and s.ids[native_id] or nil
-  if not previous and (replace or append) then
+  if not previous and (replace or continuation) then
     previous = s.last
   end
-  if append and previous then
-    content = previous.message .. content
+  if continuation and previous then
+    content, spans = append(previous, content, spans)
   end
   local item = previous or { id = model.id() }
-  item.message = content
+  item.message, item.spans = content, spans
   s.last = item
   if keyed then
     if not s.ids[native_id] then
@@ -95,6 +116,7 @@ local function show(s, args)
     title = title(kind),
     source = "neovim",
     markdown = false,
+    spans = spans,
   }, route)
 end
 

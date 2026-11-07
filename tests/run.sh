@@ -12,7 +12,7 @@ export XDG_CACHE_HOME="$test_root/cache"
 export XDG_DATA_HOME="$test_root/data"
 export NVIM_LOG_FILE="$test_root/nvim.log"
 export PYTHONDONTWRITEBYTECODE=1
-for suite in tests/startup_lazy.lua tests/core.lua tests/routing.lua tests/messages.lua tests/integrations.lua tests/layout.lua tests/tabs.lua tests/performance.lua tests/progress_bars.lua tests/scheduler.lua tests/incremental.lua tests/architecture.lua tests/styles.lua tests/theme.lua tests/markdown.lua tests/table.lua tests/history.lua tests/browsing.lua tests/task_history.lua tests/reading.lua tests/picker.lua; do
+for suite in tests/startup_lazy.lua tests/core.lua tests/routing.lua tests/messages.lua tests/integrations.lua tests/layout.lua tests/tabs.lua tests/performance.lua tests/progress_bars.lua tests/scheduler.lua tests/incremental.lua tests/architecture.lua tests/styles.lua tests/theme.lua tests/markdown.lua tests/table.lua tests/spans.lua tests/history.lua tests/browsing.lua tests/task_history.lua tests/reading.lua tests/picker.lua; do
   nvim --headless -n -u NONE -i NONE --noplugin -l "$suite"
 done
 python3 tests/messages_ui.py

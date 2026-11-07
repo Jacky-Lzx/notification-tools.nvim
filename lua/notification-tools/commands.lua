@@ -17,7 +17,11 @@ end
 
 function M.setup(tools)
   create("NotificationToolsInfo", function()
-    vim.api.nvim_echo({ { vim.inspect(tools.status()) } }, true, {})
+    tools.notify(
+      vim.inspect(tools.status()),
+      "info",
+      { title = "notification-tools.nvim", filetype = "lua" }
+    )
   end, { desc = "Inspect notification configuration, ownership and runtime state" })
   local function history_command(callback, description)
     return function(args)

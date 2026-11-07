@@ -79,18 +79,22 @@ local function preview(ctx)
   local item = ctx.item
   local header, marks = heading(item)
   local lines = { header, "" }
-  local function content(value, group, filetype)
-    value = require("notification-tools.text").clean(value)
+  local function content(value, group, filetype, spans)
     local offset = #lines
-    vim.list_extend(lines, vim.split(value, "\n", { plain = true }))
+    vim.list_extend(
+      lines,
+      vim.split(require("notification-tools.text").clean(value), "\n", { plain = true })
+    )
     for _, mark in
-      ipairs(require("notification-tools.content").source(value, group, item.markdown, filetype))
+      ipairs(
+        require("notification-tools.content").source(value, group, item.markdown, filetype, spans)
+      )
     do
       mark.row = mark.row + offset
       marks[#marks + 1] = mark
     end
   end
-  content(item.message, "Body", item.filetype)
+  content(item.message, "Body", item.filetype, item.spans)
   if item.details and item.details ~= "" then
     lines[#lines + 1] = ""
     content(item.details, "Meta")

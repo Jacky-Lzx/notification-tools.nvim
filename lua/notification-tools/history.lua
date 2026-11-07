@@ -114,6 +114,7 @@ local function formatted(item, cached)
     or body.details ~= item.details
     or body.markdown ~= item.markdown
     or body.filetype ~= item.filetype
+    or not vim.deep_equal(body.spans, item.spans)
   then
     body = {
       lines = {},
@@ -122,17 +123,17 @@ local function formatted(item, cached)
       details = item.details,
       markdown = item.markdown,
       filetype = item.filetype,
+      spans = item.spans,
     }
-    local function append_content(value, group, filetype)
-      value = clean(value)
+    local function append_content(value, group, filetype, spans)
       local offset = #body.lines
-      vim.list_extend(body.lines, vim.split(value, "\n", { plain = true }))
-      for _, mark in ipairs(content.source(value, group, item.markdown, filetype)) do
+      vim.list_extend(body.lines, vim.split(clean(value), "\n", { plain = true }))
+      for _, mark in ipairs(content.source(value, group, item.markdown, filetype, spans)) do
         mark.row = mark.row + offset
         body.marks[#body.marks + 1] = mark
       end
     end
-    append_content(item.message, "Body", item.filetype)
+    append_content(item.message, "Body", item.filetype, item.spans)
     if item.details and item.details ~= "" then
       append_content(item.details, "Meta")
     end

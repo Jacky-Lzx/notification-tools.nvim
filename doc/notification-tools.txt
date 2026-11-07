@@ -35,6 +35,16 @@ body format from the new value unless opts.filetype is supplied again. History
 and filter snapshots keep the inspected string and its filetype. Stringified
 command output is not automatically guessed to be Lua.
 
+opts.spans formats parts of a mixed body with ordered, non-overlapping ranges:
+{ start=0, finish=12, filetype="lua" } or
+{ start=12, finish=20, hl_group="WarningMsg" }.
+Offsets are zero-based original-message bytes; finish is exclusive and endpoints
+must respect UTF-8 boundaries. Unmarked text uses the body format. Spans survive
+wrapping, history and previews; replacements must supply them again.
+String messages with formatting metadata also work with the default vim.notify.
+Native messages retain semantic chunk colors on Neovim 0.12+; older protocols
+keep literal text because their screen attribute IDs cannot identify groups.
+
 Body and details support inline Markdown by default: **bold** / __bold__,
 *italic* / _italic_, backtick code spans, ~~strike~~ and [label](url). Links show
 their label; the complete URL stays in history. Escapes and literal code content
@@ -53,7 +63,7 @@ message. Per-notice mode is inherited on explicit updates. Different modes never
 auto-merge, even with identical source text.
 
 Without an explicit id/replace, identical active notices merge: title, body,
-details, severity, icon, timeout, Markdown mode and body filetype must match.
+details, severity, icon, timeout, Markdown mode, body filetype and spans must match.
 The same ID is returned, count increases, and the timeout restarts.
 Explicit updates preserve count unless the
 content changes. Explicit IDs stay independent. Set notification.merge_duplicates
